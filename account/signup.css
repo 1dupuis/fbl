@@ -5,6 +5,7 @@
     --background-color: #FFFFFF;
     --error-color: #EA4335;
     --border-color: #DADCE0;
+    --hover-color: #F1F3F4;
 }
 
 * {
@@ -26,7 +27,7 @@ body {
 
 .container {
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
     margin: 2rem auto;
     padding: 2rem;
     background-color: var(--background-color);
@@ -48,12 +49,35 @@ header {
 h1 {
     font-size: 1.5rem;
     color: var(--primary-color);
+    font-weight: 500;
 }
 
 h2 {
     font-size: 1.25rem;
     margin-bottom: 1.5rem;
     text-align: center;
+    font-weight: 500;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    background-color: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.tab.active {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
 }
 
 .input-group {
@@ -66,7 +90,7 @@ h2 {
     left: 10px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--primary-color);
+    color: var(--text-color);
 }
 
 .toggle-password {
@@ -81,12 +105,13 @@ input, select {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
-    transition: border-color 0.3s ease;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 input:focus, select:focus {
     outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
 }
 
 .checkbox-group {
@@ -114,6 +139,20 @@ button {
 
 button:hover {
     background-color: #3367D6;
+}
+
+.forgot-password {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.forgot-password a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
 }
 
 footer {
@@ -169,12 +208,19 @@ footer a:hover {
     cursor: pointer;
 }
 
+.hidden-form {
+    display: none;
+}
+
+.active-form {
+    display: block;
+}
+
 @media (max-width: 480px) {
     .container {
         margin: 1rem;
         padding: 1rem;
     }
-
     input, select {
         font-size: 16px; /* Prevents zoom on mobile devices */
     }
