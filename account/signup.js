@@ -1,108 +1,219 @@
-// Import Firebase functions
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { 
+    createUserWithEmailAndPassword, 
+    sendEmailVerification, 
+    signInWithEmailAndPassword, 
+    sendPasswordResetEmail,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { ref, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-let form, usernameInput, emailInput, passwordInput, confirmPasswordInput, roleInput, languageInput, termsCheckbox, termsLink, termsModal, closeModal, togglePassword, submitButton;
-let auth, database;
-
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
-    authDomain: "dupuis-lol.firebaseapp.com",
-    databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
-    projectId: "dupuis-lol",
-    storageBucket: "dupuis-lol.appspot.com",
-    messagingSenderId: "807402660080",
-    appId: "1:807402660080:web:545d4e1287f5803ebda235",
-    measurementId: "G-TR8JMF5FRY"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-auth = getAuth(app);
-database = getDatabase(app);
+let signupForm, signinForm, forgotPasswordForm, signupTab, signinTab;
+let termsModal, forgotPasswordModal;
+let usernameInput, emailInput, passwordInput, confirmPasswordInput, roleInput, languageInput;
+let signinEmailInput, signinPasswordInput;
+let resetEmailInput;
+let termsLink, forgotPasswordLink;
+let closeButtons;
+let togglePasswordButtons;
 
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
     bindElements();
     setupEventListeners();
+    setupAuthStateListener();
 }
 
 function bindElements() {
-    form = document.getElementById('signup-form');
+    signupForm = document.getElementById('signup-form');
+    signinForm = document.getElementById('signin-form');
+    forgotPasswordForm = document.getElementById('forgot-password-form');
+    signupTab = document.getElementById('signup-tab');
+    signinTab = document.getElementById('signin-tab');
+    termsModal = document.getElementById('terms-modal');
+    forgotPasswordModal = document.getElementById('forgot-password-modal');
+
     usernameInput = document.getElementById('username');
     emailInput = document.getElementById('email');
     passwordInput = document.getElementById('password');
     confirmPasswordInput = document.getElementById('confirm-password');
     roleInput = document.getElementById('role');
     languageInput = document.getElementById('language');
-    termsCheckbox = document.getElementById('terms');
+
+    signinEmailInput = document.getElementById('signin-email');
+    signinPasswordInput = document.getElementById('signin-password');
+
+    resetEmailInput = document.getElementById('reset-email');
+
     termsLink = document.getElementById('terms-link');
-    termsModal = document.getElementById('terms-modal');
-    closeModal = document.querySelector('.close');
-    togglePassword = document.getElementById('toggle-password');
-    submitButton = document.querySelector('button[type="submit"]');
+    forgotPasswordLink = document.getElementById('forgot-password-link');
+
+    closeButtons = document.querySelectorAll('.close');
+    togglePasswordButtons = document.querySelectorAll('.toggle-password');
 }
 
 function setupEventListeners() {
-    form.addEventListener('submit', handleSubmit);
+    signupForm.addEventListener('submit', handleSignup);
+    signinForm.addEventListener('submit', handleSignin);
+    forgotPasswordForm.addEventListener('submit', handleForgotPassword);
+    signupTab.addEventListener('click', () => switchTab('signup'));
+    signinTab.addEventListener('click', () => switchTab('signin'));
+    
     termsLink.addEventListener('click', openModal);
-    closeModal.addEventListener('click', closeModalFunction);
+    forgotPasswordLink.addEventListener('click', openModal);
+    
+    closeButtons.forEach(button => {
+        button.addEventListener('click', closeModal);
+    });
+
+    togglePasswordButtons.forEach(button => {
+        button.addEventListener('click', togglePasswordVisibility);
+    });
+
     window.addEventListener('click', outsideClickCloseModal);
-    
-    usernameInput.addEventListener('input', debounce(() => validateField(usernameInput, 'Username is required'), 300));
-    emailInput.addEventListener('input', debounce(() => validateEmail(emailInput), 300));
-    passwordInput.addEventListener('input', debounce(() => validatePasswordStrength(passwordInput), 300));
-    confirmPasswordInput.addEventListener('input', debounce(() => validatePasswordMatch(passwordInput, confirmPasswordInput), 300));
-    
-    if (togglePassword) {
-        togglePassword.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            confirmPasswordInput.setAttribute('type', type);
-            togglePassword.textContent = type === 'password' ? 'Show' : 'Hide';
-        });
-    }
+
+    // Add input event listeners for real-time validation
+    usernameInput.addEventListener('input', () => validateField(usernameInput, 'Username is required'));
+    emailInput.addEventListener('input', validateEmail);
+    passwordInput.addEventListener('input', validatePasswordStrength);
+    confirmPasswordInput.addEventListener('input', () => validatePasswordMatch(passwordInput, confirmPasswordInput));
+    roleInput.addEventListener('change', () => validateField(roleInput, 'Please select a role'));
+    languageInput.addEventListener('change', () => validateField(languageInput, 'Please select a preferred language'));
 }
 
-function debounce(func, delay) {
-    let timeoutId;
-    return function (...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
+function setupAuthStateListener() {
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // User is signed in, redirect to dashboard or show welcome message
+            showNotification(`Welcome, ${user.email}!`, 'success');
+            // You can redirect to a dashboard page here
+            // window.location.href = 'dashboard.html';
+        }
+    });
 }
 
-async function handleSubmit(e) {
+async function handleSignup(e) {
     e.preventDefault();
-    if (validateForm()) {
-        submitButton.disabled = true;
-        submitButton.textContent = 'Creating account...';
+    if (validateForm(signupForm)) {
+        const email = emailInput.value;
+        const password = passwordInput.value;
+
         try {
-            await createUser();
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            await sendEmailVerification(user);
+            await saveUserData(user.uid);
+            showNotification('Account created successfully! Please check your email to verify your account.', 'success');
+            signupForm.reset();
         } catch (error) {
-            console.error('Error creating user:', error);
+            console.error('Firebase error:', error);
             handleFirebaseError(error);
-        } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Sign Up';
         }
     }
 }
 
-function validateForm() {
+async function handleSignin(e) {
+    e.preventDefault();
+    const email = signinEmailInput.value;
+    const password = signinPasswordInput.value;
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        showNotification('Signed in successfully!', 'success');
+        signinForm.reset();
+        // Redirect to dashboard or show welcome message
+    } catch (error) {
+        console.error('Firebase error:', error);
+        handleFirebaseError(error);
+    }
+}
+
+async function handleForgotPassword(e) {
+    e.preventDefault();
+    const email = resetEmailInput.value;
+
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showNotification('Password reset email sent. Please check your inbox.', 'success');
+        forgotPasswordForm.reset();
+        closeForgotPasswordModal();
+    } catch (error) {
+        console.error('Firebase error:', error);
+        handleFirebaseError(error);
+    }
+}
+
+async function saveUserData(userId) {
+    const userData = {
+        username: usernameInput.value,
+        email: emailInput.value,
+        role: roleInput.value,
+        language: languageInput.value,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await set(ref(database, 'users/' + userId), userData);
+    } catch (error) {
+        console.error('Error saving user data:', error);
+        throw new Error('Failed to save user data');
+    }
+}
+
+function switchTab(tab) {
+    if (tab === 'signup') {
+        signupForm.classList.add('active-form');
+        signinForm.classList.remove('active-form');
+        signupTab.classList.add('active');
+        signinTab.classList.remove('active');
+    } else {
+        signinForm.classList.add('active-form');
+        signupForm.classList.remove('active-form');
+        signinTab.classList.add('active');
+        signupTab.classList.remove('active');
+    }
+}
+
+function openModal(e) {
+    e.preventDefault();
+    const modalId = e.target.getAttribute('href').substring(1);
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal() {
+    termsModal.style.display = 'none';
+    forgotPasswordModal.style.display = 'none';
+}
+
+function outsideClickCloseModal(e) {
+    if (e.target === termsModal || e.target === forgotPasswordModal) {
+        closeModal();
+    }
+}
+
+function togglePasswordVisibility(e) {
+    const passwordInput = e.target.previousElementSibling;
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    e.target.classList.toggle('fa-eye');
+    e.target.classList.toggle('fa-eye-slash');
+}
+
+function validateForm(form) {
     let isValid = true;
-
-    isValid = validateField(usernameInput, 'Username is required') && isValid;
-    isValid = validateEmail(emailInput) && isValid;
-    isValid = validatePasswordStrength(passwordInput) && isValid;
-    isValid = validatePasswordMatch(passwordInput, confirmPasswordInput) && isValid;
-    isValid = validateField(roleInput, 'Please select a role') && isValid;
-    isValid = validateField(languageInput, 'Please select a preferred language') && isValid;
-    isValid = validateCheckbox(termsCheckbox, 'You must agree to the terms and conditions') && isValid;
-
+    form.querySelectorAll('input, select').forEach(input => {
+        if (input.type === 'checkbox') {
+            isValid = validateCheckbox(input, 'You must agree to the terms and conditions') && isValid;
+        } else if (input.type === 'email') {
+            isValid = validateEmail(input) && isValid;
+        } else if (input.type === 'password' && input.id === 'password') {
+            isValid = validatePasswordStrength(input) && isValid;
+        } else if (input.type === 'password' && input.id === 'confirm-password') {
+            isValid = validatePasswordMatch(passwordInput, input) && isValid;
+        } else {
+            isValid = validateField(input, `${input.placeholder} is required`) && isValid;
+        }
+    });
     return isValid;
 }
 
@@ -178,40 +289,6 @@ function removeError(input) {
     input.style.borderColor = '';
 }
 
-async function createUser() {
-    const email = emailInput.value;
-    const password = passwordInput.value;
-
-    try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        await sendEmailVerification(user);
-        await saveUserData(user.uid);
-        showSuccessMessage('Account created successfully! Please check your email to verify your account.');
-        form.reset();
-    } catch (error) {
-        console.error('Firebase error:', error);
-        throw error;
-    }
-}
-
-async function saveUserData(userId) {
-    const userData = {
-        username: usernameInput.value,
-        email: emailInput.value,
-        role: roleInput.value,
-        language: languageInput.value,
-        createdAt: new Date().toISOString()
-    };
-
-    try {
-        await set(ref(database, 'users/' + userId), userData);
-    } catch (error) {
-        console.error('Error saving user data:', error);
-        throw new Error('Failed to save user data');
-    }
-}
-
 function handleFirebaseError(error) {
     let errorMessage;
     switch (error.code) {
@@ -224,62 +301,23 @@ function handleFirebaseError(error) {
         case 'auth/weak-password':
             errorMessage = 'The password is too weak. Please choose a stronger password.';
             break;
-        case 'auth/network-request-failed':
-            errorMessage = 'Network error. Please check your internet connection and try again.';
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+            errorMessage = 'Invalid email or password. Please try again.';
             break;
         case 'auth/too-many-requests':
             errorMessage = 'Too many unsuccessful attempts. Please try again later.';
             break;
-        case 'auth/configuration-not-found':
-            errorMessage = 'Firebase configuration error. Please check your Firebase setup.';
-            break;
         default:
-            errorMessage = `An error occurred while creating your account: ${error.message}`;
+            errorMessage = `An error occurred: ${error.message}`;
     }
-    showErrorMessage(errorMessage);
-}
-
-function showSuccessMessage(message) {
-    showNotification(message, 'success');
-}
-
-function showErrorMessage(message) {
-    showNotification(message, 'error');
+    showNotification(errorMessage, 'error');
 }
 
 function showNotification(message, type) {
     const notification = document.createElement('div');
     notification.textContent = message;
-    notification.style.position = 'fixed';
-    notification.style.top = '10px';
-    notification.style.right = '10px';
-    notification.style.padding = '10px';
-    notification.style.borderRadius = '4px';
-    notification.style.color = 'white';
-    notification.style.zIndex = '1000';
-    notification.style.maxWidth = '300px';
-
-    if (type === 'success') {
-        notification.style.backgroundColor = '#4CAF50';
-    } else {
-        notification.style.backgroundColor = '#F44336';
-    }
-
+    notification.className = `notification ${type}`;
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 5000);
-}
-
-function openModal(e) {
-    e.preventDefault();
-    termsModal.style.display = 'block';
-}
-
-function closeModalFunction() {
-    termsModal.style.display = 'none';
-}
-
-function outsideClickCloseModal(e) {
-    if (e.target === termsModal) {
-        termsModal.style.display = 'none';
-    }
 }
