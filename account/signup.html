@@ -3,17 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FBL - Sign Up</title>
+    <title>FBL - Sign Up or Sign In</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="signup.css">
 </head>
 <body>
     <div class="container">
         <header>
+            <img src="fbl-logo.png" alt="French Book Library Logo" class="logo">
             <h1>French Book Library</h1>
         </header>
         <main>
-            <form id="signup-form">
+            <div class="tabs">
+                <button id="signup-tab" class="tab active">Sign Up</button>
+                <button id="signin-tab" class="tab">Sign In</button>
+            </div>
+            <form id="signup-form" class="active-form">
                 <h2>Create an Account</h2>
                 <div class="input-group">
                     <i class="fas fa-user"></i>
@@ -26,6 +31,7 @@
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
                     <input type="password" id="password" name="password" required placeholder="Password">
+                    <i class="fas fa-eye toggle-password" id="toggle-password"></i>
                 </div>
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
@@ -53,6 +59,24 @@
                 </div>
                 <button type="submit">Sign Up</button>
             </form>
+            <form id="signin-form" class="hidden-form">
+                <h2>Sign In to Your Account</h2>
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="signin-email" name="signin-email" required placeholder="Email address">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signin-password" name="signin-password" required placeholder="Password">
+                    <i class="fas fa-eye toggle-password" id="toggle-signin-password"></i>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="remember-me" name="remember-me">
+                    <label for="remember-me">Remember me</label>
+                </div>
+                <button type="submit">Sign In</button>
+                <p class="forgot-password"><a href="#" id="forgot-password-link">Forgot password?</a></p>
+            </form>
         </main>
         <footer>
             <p>&copy; 2024 French Book Library. All rights reserved.</p>
@@ -65,6 +89,20 @@
             <h2>Terms and Conditions</h2>
             <p>Please read these terms and conditions carefully before using the French Book Library service.</p>
             <!-- Add more terms and conditions text here -->
+        </div>
+    </div>
+    <div id="forgot-password-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Reset Password</h2>
+            <p>Enter your email address to receive a password reset link.</p>
+            <form id="forgot-password-form">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="reset-email" name="reset-email" required placeholder="Email address">
+                </div>
+                <button type="submit">Send Reset Link</button>
+            </form>
         </div>
     </div>
     
