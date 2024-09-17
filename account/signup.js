@@ -117,12 +117,12 @@ async function redirectToClasses(userId) {
         const userRef = ref(database, `users/${userId}`);
         const snapshot = await get(userRef);
         const userData = snapshot.val();
-        
-        if (userData && userData.classes && userData.classes.length > 0) {
-            window.location.href = `https://fbl.dupuis.lol/classes/find?id=${userData.classes[0]}`;
-        } else {
-            window.location.href = 'https://fbl.dupuis.lol/classes/join';
-        }
+        window.location.href = 'https://fbl.dupuis.lol/classes/dashboard';
+        //if (userData && userData.classes && userData.classes.length > 0) {
+        //    window.location.href = `https://fbl.dupuis.lol/classes/find?id=${userData.classes[0]}`;
+        //} else {
+        //    window.location.href = 'https://fbl.dupuis.lol/classes/join';
+        //}
     } catch (error) {
         console.error('Error fetching user data:', error);
         showNotification('An error occurred. Please try again.', 'error');
