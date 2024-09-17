@@ -27,7 +27,7 @@ const database = getDatabase(app);
 
 let inactivityTimer;
 const INACTIVITY_TIMEOUT = 10000//60 * 60 * 1000;  // 1 hour in milliseconds
-const REFRESH_TOKEN_INTERVAL = 8000//55 * 60 * 1000;  // 55 minutes in milliseconds
+const REFRESH_TOKEN_INTERVAL = 15000//55 * 60 * 1000;  // 55 minutes in milliseconds
 
 function init() {
     onAuthStateChanged(auth, handleAuthStateChange);
