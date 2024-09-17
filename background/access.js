@@ -3,9 +3,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebas
 import {
     getAuth, 
     onAuthStateChanged, 
-    signOut 
+    signOut,
+    signInWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -25,11 +26,13 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 
 let inactivityTimer;
-const INACTIVITY_TIMEOUT = 5000//1 * 60 * 60 * 1000;  // 1 hours in milliseconds
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000;  // 1 hour in milliseconds
+const REFRESH_TOKEN_INTERVAL = 55 * 60 * 1000;  // 55 minutes in milliseconds
 
 function init() {
     onAuthStateChanged(auth, handleAuthStateChange);
     setupInactivityListeners();
+    startRefreshTokenTimer();
 }
 
 async function handleAuthStateChange(user) {
@@ -91,13 +94,24 @@ function showSignInPopup() {
         <div class="signin-popup-content">
             <h2>Session Expired</h2>
             <p>Your session has expired due to inactivity. Please sign in again.</p>
+            <input type="email" id="signin-email" placeholder="Email" required>
+            <input type="password" id="signin-password" placeholder="Password" required>
             <button id="signin-popup-button">Sign In</button>
         </div>
     `;
     document.body.appendChild(popup);
 
-    document.getElementById('signin-popup-button').addEventListener('click', () => {
-        window.location.href = 'https://fbl.dupuis.lol/account/signup';
+    document.getElementById('signin-popup-button').addEventListener('click', async () => {
+        const email = document.getElementById('signin-email').value;
+        const password = document.getElementById('signin-password').value;
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            popup.remove();
+            resetInactivityTimer();
+        } catch (error) {
+            console.error("Error signing in:", error);
+            showNotification('Failed to sign in. Please try again.', 'error');
+        }
     });
 }
 
@@ -108,13 +122,40 @@ function redirectToSignup() {
 }
 
 function showNotification(message, type) {
-    // Implement this function to show notifications to the user
-    console.log(`${type.toUpperCase()}: ${message}`);
-    // You can use the same implementation as in the main script
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+function startRefreshTokenTimer() {
+    setInterval(async () => {
+        const user = auth.currentUser;
+        if (user) {
+            try {
+                await user.getIdToken(true);
+                console.log('Token refreshed successfully');
+            } catch (error) {
+                console.error('Error refreshing token:', error);
+            }
+        }
+    }, REFRESH_TOKEN_INTERVAL);
+}
+
+async function updateLastActive(userId) {
+    try {
+        const userRef = ref(database, `users/${userId}/lastActive`);
+        await set(userRef, Date.now());
+    } catch (error) {
+        console.error('Error updating last active timestamp:', error);
+    }
 }
 
 // Initialize the access control
 init();
 
 // Export functions that might be needed in other parts of your application
-export { resetInactivityTimer };
+export { resetInactivityTimer, updateLastActive }
