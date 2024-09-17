@@ -60,7 +60,7 @@ async function redirectToAppropriatePlace(userId) {
         const userData = snapshot.val();
         
         if (userData && userData.classes && userData.classes.length > 0) {
-            window.location.href = `https://fbl.dupuis.lol/classes/${userData.classes[0]}`;
+            window.location.href = `https://fbl.dupuis.lol/classes/find?id=${userData.classes[0]}`;
         } else {
             window.location.href = 'https://fbl.dupuis.lol/classes/join';
         }
