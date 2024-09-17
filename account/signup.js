@@ -36,7 +36,6 @@ function bindElements() {
     forgotPasswordForm = document.getElementById('forgot-password-form');
     signupTab = document.getElementById('signup-tab');
     signinTab = document.getElementById('signin-tab');
-    termsModal = document.getElementById('terms-modal');
     forgotPasswordModal = document.getElementById('forgot-password-modal');
 
     usernameInput = document.getElementById('username');
@@ -51,7 +50,6 @@ function bindElements() {
 
     resetEmailInput = document.getElementById('reset-email');
 
-    termsLink = document.getElementById('terms-link');
     forgotPasswordLink = document.getElementById('forgot-password-link');
 
     closeButtons = document.querySelectorAll('.close');
@@ -74,7 +72,6 @@ function setupEventListeners() {
     signupTab.addEventListener('click', () => switchTab('signup'));
     signinTab.addEventListener('click', () => switchTab('signin'));
     
-    termsLink.addEventListener('click', openModal);
     forgotPasswordLink.addEventListener('click', openModal);
     
     closeButtons.forEach(button => {
@@ -239,17 +236,6 @@ function openModal(e) {
     e.preventDefault();
     const modalId = e.target.getAttribute('href').substring(1);
     document.getElementById(modalId).style.display = 'block';
-}
-
-function closeModal() {
-    termsModal.style.display = 'none';
-    forgotPasswordModal.style.display = 'none';
-}
-
-function outsideClickCloseModal(e) {
-    if (e.target === termsModal || e.target === forgotPasswordModal) {
-        closeModal();
-    }
 }
 
 function togglePasswordVisibility(e) {
