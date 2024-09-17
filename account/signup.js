@@ -3,9 +3,11 @@ import {
     sendEmailVerification, 
     signInWithEmailAndPassword, 
     sendPasswordResetEmail,
-    onAuthStateChanged
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { ref, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
 let signupForm, signinForm, forgotPasswordForm, signupTab, signinTab;
 let termsModal, forgotPasswordModal;
@@ -15,6 +17,8 @@ let resetEmailInput;
 let termsLink, forgotPasswordLink;
 let closeButtons;
 let togglePasswordButtons;
+let passwordStrengthIndicator;
+let googleSignInButton;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -50,6 +54,15 @@ function bindElements() {
 
     closeButtons = document.querySelectorAll('.close');
     togglePasswordButtons = document.querySelectorAll('.toggle-password');
+
+    passwordStrengthIndicator = document.createElement('div');
+    passwordStrengthIndicator.className = 'password-strength';
+    passwordInput.parentNode.insertBefore(passwordStrengthIndicator, passwordInput.nextSibling);
+
+    googleSignInButton = document.createElement('button');
+    googleSignInButton.textContent = 'Sign in with Google';
+    googleSignInButton.className = 'google-signin';
+    signinForm.appendChild(googleSignInButton);
 }
 
 function setupEventListeners() {
@@ -79,14 +92,14 @@ function setupEventListeners() {
     confirmPasswordInput.addEventListener('input', () => validatePasswordMatch(passwordInput, confirmPasswordInput));
     roleInput.addEventListener('change', () => validateField(roleInput, 'Please select a role'));
     languageInput.addEventListener('change', () => validateField(languageInput, 'Please select a preferred language'));
+
+    googleSignInButton.addEventListener('click', handleGoogleSignIn);
 }
 
 function setupAuthStateListener() {
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // User is signed in, redirect to dashboard or show welcome message
             showNotification(`Welcome, ${user.email}!`, 'success');
-            // You can redirect to a dashboard page here
             window.location.href = 'https://fbl.dupuis.lol/classes/id';
         }
     });
@@ -118,10 +131,14 @@ async function handleSignin(e) {
     const password = signinPasswordInput.value;
 
     try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        if (!user.emailVerified) {
+            showNotification('Please verify your email before signing in.', 'error');
+            return;
+        }
         showNotification('Signed in successfully!', 'success');
         signinForm.reset();
-        // Redirect to dashboard or show welcome message
     } catch (error) {
         console.error('Firebase error:', error);
         handleFirebaseError(error);
@@ -143,10 +160,23 @@ async function handleForgotPassword(e) {
     }
 }
 
-async function saveUserData(userId) {
+async function handleGoogleSignIn() {
+    const provider = new GoogleAuthProvider();
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        await saveUserData(user.uid, { email: user.email, username: user.displayName });
+        showNotification('Signed in with Google successfully!', 'success');
+    } catch (error) {
+        console.error('Google Sign-In error:', error);
+        handleFirebaseError(error);
+    }
+}
+
+async function saveUserData(userId, additionalData = {}) {
     const userData = {
-        username: usernameInput.value,
-        email: emailInput.value,
+        username: additionalData.username || usernameInput.value,
+        email: additionalData.email || emailInput.value,
         role: roleInput.value,
         language: languageInput.value,
         createdAt: new Date().toISOString()
@@ -192,7 +222,7 @@ function outsideClickCloseModal(e) {
 }
 
 function togglePasswordVisibility(e) {
-    const passwordInput = e.target.previousElementSibling;
+    const passwordInput = e.target.closest('.password-group').querySelector('input');
     const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
     passwordInput.setAttribute('type', type);
     e.target.classList.toggle('fa-eye');
@@ -239,14 +269,36 @@ function validateEmail(input) {
 }
 
 function validatePasswordStrength(input) {
-    const re = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*]).{8,}$/;
-    if (!re.test(input.value)) {
+    const password = input.value;
+    const strength = calculatePasswordStrength(password);
+    updatePasswordStrengthIndicator(strength);
+
+    if (strength < 3) {
         showError(input, 'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character');
         return false;
     } else {
         removeError(input);
         return true;
     }
+}
+
+function calculatePasswordStrength(password) {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (password.match(/[a-z]/)) strength++;
+    if (password.match(/[A-Z]/)) strength++;
+    if (password.match(/[0-9]/)) strength++;
+    if (password.match(/[^a-zA-Z0-9]/)) strength++;
+    return strength;
+}
+
+function updatePasswordStrengthIndicator(strength) {
+    const colors = ['#EA4335', '#FBBC05', '#34A853', '#4285F4'];
+    const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+    
+    passwordStrengthIndicator.style.width = `${(strength / 4) * 100}%`;
+    passwordStrengthIndicator.style.backgroundColor = colors[strength - 1] || colors[0];
+    passwordStrengthIndicator.textContent = labels[strength - 1] || labels[0];
 }
 
 function validatePasswordMatch(password, confirmPassword) {
@@ -274,19 +326,16 @@ function showError(input, message) {
     const error = document.createElement('div');
     error.className = 'error-message';
     error.textContent = message;
-    error.style.color = 'var(--error-color)';
-    error.style.fontSize = '0.875rem';
-    error.style.marginTop = '0.25rem';
     input.parentNode.insertBefore(error, input.nextSibling);
-    input.style.borderColor = 'var(--error-color)';
+    input.classList.add('error');
 }
 
 function removeError(input) {
-    const errorElement = input.nextElementSibling;
-    if (errorElement && errorElement.classList.contains('error-message')) {
+    const errorElement = input.parentNode.querySelector('.error-message');
+    if (errorElement) {
         errorElement.remove();
     }
-    input.style.borderColor = '';
+    input.classList.remove('error');
 }
 
 function handleFirebaseError(error) {
@@ -308,6 +357,9 @@ function handleFirebaseError(error) {
         case 'auth/too-many-requests':
             errorMessage = 'Too many unsuccessful attempts. Please try again later.';
             break;
+        case 'auth/popup-closed-by-user':
+            errorMessage = 'Google Sign-In was cancelled. Please try again.';
+            break;
         default:
             errorMessage = `An error occurred: ${error.message}`;
     }
@@ -319,5 +371,14 @@ function showNotification(message, type) {
     notification.textContent = message;
     notification.className = `notification ${type}`;
     document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 5000);
+    
+    // Trigger a reflow to enable the transition
+    notification.offsetHeight;
+    
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300); // Wait for the fade-out transition
+    }, 5000);
 }
