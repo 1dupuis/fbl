@@ -39,7 +39,10 @@ async function handleAuthStateChange(user) {
     if (user) {
         if (user.emailVerified) {
             resetInactivityTimer();
-            await redirectToAppropriatePlace(user.uid);
+            // Only redirect if not already on a valid page
+            if (!window.location.pathname.startsWith('/classes/')) {
+                await redirectToAppropriatePlace(user.uid);
+            }
         } else {
             showNotification('Please verify your email before accessing the app.', 'warning');
             await signOut(auth);
