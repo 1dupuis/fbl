@@ -87,7 +87,7 @@ function setupAuthStateListener() {
             // User is signed in, redirect to dashboard or show welcome message
             showNotification(`Welcome, ${user.email}!`, 'success');
             // You can redirect to a dashboard page here
-            //window.location.href = 'classes/id';
+            window.location.href = 'https://dupuis.lol/classes/id';
         }
     });
 }
