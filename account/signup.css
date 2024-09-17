@@ -6,6 +6,8 @@
     --error-color: #EA4335;
     --border-color: #DADCE0;
     --hover-color: #F1F3F4;
+    --focus-color: #E8F0FE;
+    --shadow-color: rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -32,7 +34,7 @@ body {
     padding: 2rem;
     background-color: var(--background-color);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px var(--shadow-color);
 }
 
 header {
@@ -41,8 +43,9 @@ header {
 }
 
 .logo {
-    width: 350;
-    height: 150px;
+    width: 100%;
+    max-width: 350px;
+    height: auto;
     margin-bottom: 1rem;
 }
 
@@ -72,7 +75,7 @@ h2 {
     color: var(--text-color);
     cursor: pointer;
     font-size: 1rem;
-    transition: color 0.3s ease;
+    transition: color 0.3s ease, border-bottom 0.3s ease;
 }
 
 .tab.active {
@@ -93,10 +96,21 @@ h2 {
     color: var(--text-color);
 }
 
+.password-group {
+    display: flex;
+    align-items: center;
+}
+
 .toggle-password {
-    right: 10px;
-    left: auto;
+    background: none;
+    border: none;
     cursor: pointer;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-color);
+    padding: 0;
 }
 
 input, select {
@@ -111,7 +125,7 @@ input, select {
 input:focus, select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+    box-shadow: 0 0 0 2px var(--focus-color);
 }
 
 .checkbox-group {
@@ -125,7 +139,7 @@ input:focus, select:focus {
     width: auto;
 }
 
-button {
+button[type="submit"] {
     width: 100%;
     padding: 0.75rem;
     background-color: var(--primary-color);
@@ -137,7 +151,7 @@ button {
     transition: background-color 0.3s ease;
 }
 
-button:hover {
+button[type="submit"]:hover {
     background-color: #3367D6;
 }
 
@@ -216,6 +230,37 @@ footer a:hover {
     display: block;
 }
 
+.error-message {
+    color: var(--error-color);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    border-radius: 4px;
+    color: white;
+    font-size: 0.875rem;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.notification.success {
+    background-color: var(--secondary-color);
+}
+
+.notification.error {
+    background-color: var(--error-color);
+}
+
+.notification.show {
+    opacity: 1;
+}
+
 @media (max-width: 480px) {
     .container {
         margin: 1rem;
@@ -224,4 +269,23 @@ footer a:hover {
     input, select {
         font-size: 16px; /* Prevents zoom on mobile devices */
     }
+}
+
+/* Accessibility improvements */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Focus styles for keyboard navigation */
+a:focus, button:focus, input:focus, select:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
 }
