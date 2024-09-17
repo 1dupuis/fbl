@@ -160,11 +160,15 @@ async function handleSignin(e) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         if (!user.emailVerified) {
-            showNotification('Please verify your email before signing in.', 'error');
+            await sendEmailVerification(user);
+            showNotification('Please verify your email before signing in. A new verification email has been sent.', 'warning');
+            await signOut(auth);
             return;
         }
+        resetInactivityTimer();
         showNotification('Signed in successfully!', 'success');
         signinForm.reset();
+        redirectToClasses(user.uid);
     } catch (error) {
         console.error('Firebase error:', error);
         handleFirebaseError(error);
