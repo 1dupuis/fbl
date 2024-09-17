@@ -5,7 +5,8 @@ import {
     sendPasswordResetEmail,
     onAuthStateChanged,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    signOut
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 import { resetInactivityTimer } from '/background/access.js';
