@@ -25,7 +25,7 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 
 let inactivityTimer;
-const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000;  // 2 hours in milliseconds
+const INACTIVITY_TIMEOUT = 5000//1 * 60 * 60 * 1000;  // 1 hours in milliseconds
 
 function init() {
     onAuthStateChanged(auth, handleAuthStateChange);
