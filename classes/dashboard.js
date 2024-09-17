@@ -68,7 +68,7 @@ onAuthStateChanged(auth, (user) => {
         loadUserClasses();
     } else {
         // Redirect to login page if not authenticated
-        window.location.href = '/login.html';
+        window.location.href = '/account/signup';
     }
 });
 
