@@ -8,6 +8,7 @@ import {
     signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { ref, set, get } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { resetInactivityTimer } from '/background/access.js';
 
 let signupForm, signinForm, forgotPasswordForm, signupTab, signinTab;
 let termsModal, forgotPasswordModal;
@@ -99,10 +100,35 @@ function setupEventListeners() {
 function setupAuthStateListener() {
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            showNotification(`Welcome, ${user.email}!`, 'success');
-            window.location.href = 'https://fbl.dupuis.lol/classes/id';
+            if (user.emailVerified) {
+                showNotification(`Welcome, ${user.displayName || user.email}!`, 'success');
+                resetInactivityTimer();
+                redirectToClasses(user.uid);
+            } else {
+                showNotification('Please verify your email before signing in.', 'warning');
+                signOut(auth);
+            }
+        } else {
+            window.location.href = 'https://fbl.dupuis.lol/account/signup';
         }
     });
+}
+
+async function redirectToClasses(userId) {
+    try {
+        const userRef = ref(database, `users/${userId}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+        
+        if (userData && userData.classes && userData.classes.length > 0) {
+            window.location.href = `https://fbl.dupuis.lol/classes/find?id=${userData.classes[0]}`;
+        } else {
+            window.location.href = 'https://fbl.dupuis.lol/classes/join';
+        }
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        showNotification('An error occurred. Please try again.', 'error');
+    }
 }
 
 async function handleSignup(e) {
