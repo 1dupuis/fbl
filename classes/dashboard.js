@@ -247,7 +247,26 @@ async function createClass(className, subject, description) {
     }
 }
 
-// Load User Classes
+// Check for valid classes (remove duplicates)
+async function checkValidClasses(classes) {
+    const validClasses = {};
+    const classPromises = Object.keys(classes).map(async (classCode) => {
+        const classRef = ref(database, `classes/${classCode}`);
+        const classSnapshot = await get(classRef);
+        if (classSnapshot.exists()) {
+            validClasses[classCode] = true;
+        } else {
+            console.warn(`Class ${classCode} not found in database. Removing from user's classes.`);
+            const userClassRef = ref(database, `users/${currentUser.uid}/classes/${classCode}`);
+            await remove(userClassRef);
+        }
+    });
+
+    await Promise.all(classPromises);
+    return validClasses;
+}
+
+// Load User Classes (updated)
 async function loadUserClasses() {
     try {
         const userClassesRef = ref(database, `users/${currentUser.uid}/classes`);
@@ -257,7 +276,9 @@ async function loadUserClasses() {
 
         if (userClassesSnapshot.exists()) {
             const classes = userClassesSnapshot.val();
-            const classPromises = Object.keys(classes).map(async (classCode) => {
+            const validClasses = await checkValidClasses(classes);
+
+            const classPromises = Object.keys(validClasses).map(async (classCode) => {
                 const classRef = ref(database, `classes/${classCode}`);
                 const classSnapshot = await get(classRef);
                 return { classCode, classData: classSnapshot.val() };
@@ -268,6 +289,10 @@ async function loadUserClasses() {
                 const classCard = createClassCard(classCode, classData);
                 classesContainer.appendChild(classCard);
             });
+
+            if (classResults.length === 0) {
+                classesContainer.innerHTML = '<p>You are not enrolled in any classes yet.</p>';
+            }
         } else {
             classesContainer.innerHTML = '<p>You are not enrolled in any classes yet.</p>';
         }
