@@ -316,15 +316,27 @@ function createClassCard(classCode, classData) {
 
 // Show class details
 window.showClassDetails = async function(classCode) {
+    if (!currentUser || !currentUser.uid) {
+        console.error('User not authenticated');
+        showNotification('Please log in to view class details.', 'error');
+        return;
+    }
+
     try {
+        console.log('Attempting to read class:', classCode);
+        console.log('Current user:', currentUser.uid);
+
         const classRef = ref(database, `classes/${classCode}`);
         const classSnapshot = await get(classRef);
         
+        console.log('Class data retrieved:', classSnapshot.exists());
+
         if (!classSnapshot.exists()) {
             throw new Error("Class not found");
         }
         
         const classData = classSnapshot.val();
+        console.log('Class data:', classData);
 
         // Check if the current user is a member or teacher of the class
         if (classData.teacher !== currentUser.uid && (!classData.members || !classData.members[currentUser.uid])) {
