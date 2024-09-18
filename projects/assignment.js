@@ -14,7 +14,14 @@ import {
 
 // Initialize Firebase (use the same config as in dashboard.js)
 const firebaseConfig = {
-    // Your Firebase config here
+    apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
+    authDomain: "dupuis-lol.firebaseapp.com",
+    databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
+    projectId: "dupuis-lol",
+    storageBucket: "dupuis-lol.appspot.com",
+    messagingSenderId: "807402660080",
+    appId: "1:807402660080:web:545d4e1287f5803ebda235",
+    measurementId: "G-TR8JMF5FRY"
 };
 
 const app = initializeApp(firebaseConfig);
