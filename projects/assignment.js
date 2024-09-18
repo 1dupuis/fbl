@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('content').style.display = 'block';
             });
         } else {
-            window.location.href = '/login.html';
+            window.location.href = '/account/signup';
         }
     });
 
