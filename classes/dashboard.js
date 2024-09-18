@@ -166,6 +166,17 @@ joinClassForm.addEventListener('submit', (e) => {
     joinClass(classCode);
 });
 
+// Notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
 // Join Class
 async function joinClass(classCode) {
     if (!validateClassCode(classCode)) {
