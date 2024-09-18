@@ -540,7 +540,7 @@ logoutLink.addEventListener('click', (e) => {
     });
 });
 
-// View assignments
+// View assignments (updated)
 window.viewAssignments = async function(classCode) {
     try {
         const assignmentsRef = ref(database, `classes/${classCode}/assignments`);
@@ -554,7 +554,9 @@ window.viewAssignments = async function(classCode) {
                     <div class="assignment">
                         <h4>${assignment.title}</h4>
                         <p>${assignment.description}</p>
-                        <p>Due: ${assignment.dueDate}</p>
+                        <p>Due: ${new Date(assignment.dueDate).toLocaleString()}</p>
+                        <button onclick="openAssignmentProject('${id}', '${classCode}', 'edit')">Work on Assignment</button>
+                        <button onclick="openAssignmentProject('${id}', '${classCode}', 'view')">View Submission</button>
                         ${currentUser.uid === assignment.teacherId ? 
                             `<button onclick="editAssignment('${classCode}', '${id}')">Edit</button>
                              <button onclick="deleteAssignment('${classCode}', '${id}')">Delete</button>` 
@@ -573,6 +575,12 @@ window.viewAssignments = async function(classCode) {
         console.error('Error loading assignments:', error);
         showNotification('Failed to load assignments. Please try again.', 'error');
     }
+}
+
+// Open assignment project (updated)
+window.openAssignmentProject = function(assignmentId, classCode, mode) {
+    const projectUrl = `/projects/assignment.html?id=${assignmentId}&class=${classCode}&mode=${mode}`;
+    window.location.href = projectUrl;
 }
 
 // Edit assignment
