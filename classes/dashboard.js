@@ -319,7 +319,17 @@ window.showClassDetails = async function(classCode) {
     try {
         const classRef = ref(database, `classes/${classCode}`);
         const classSnapshot = await get(classRef);
+        
+        if (!classSnapshot.exists()) {
+            throw new Error("Class not found");
+        }
+        
         const classData = classSnapshot.val();
+
+        // Check if the current user is a member or teacher of the class
+        if (classData.teacher !== currentUser.uid && !classData.members[currentUser.uid]) {
+            throw new Error("You don't have permission to view this class");
+        }
 
         const teacherRef = ref(database, `users/${classData.teacher}`);
         const teacherSnapshot = await get(teacherRef);
@@ -344,7 +354,17 @@ window.showClassDetails = async function(classCode) {
         modal.style.display = 'block';
     } catch (error) {
         console.error('Error loading class details:', error);
-        showNotification('Failed to load class details. Please try again.', 'error');
+        if (error.message === "You don't have permission to view this class") {
+            showNotification('You don\'t have permission to view this class. If you believe this is an error, please contact the class teacher.', 'error');
+        } else if (error.message === "Class not found") {
+            showNotification('This class no longer exists. It may have been deleted.', 'error');
+            // Remove the class from the user's list
+            const userClassRef = ref(database, `users/${currentUser.uid}/classes/${classCode}`);
+            await remove(userClassRef);
+            loadUserClasses(); // Refresh the class list
+        } else {
+            showNotification('Failed to load class details. Please try again.', 'error');
+        }
     }
 }
 
