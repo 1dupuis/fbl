@@ -16,13 +16,11 @@
             <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </nav>
     </header>
-
     <main>
         <section id="userInfo">
             <h2>Welcome, <span id="username"></span>!</h2>
             <p>Role: <span id="userRole"></span></p>
         </section>
-
         <section id="joinClass">
             <h2>Join a Class</h2>
             <form id="joinClassForm">
@@ -30,7 +28,6 @@
                 <button type="submit">Join Class</button>
             </form>
         </section>
-
         <section id="createClass">
             <h2>Create a Class</h2>
             <form id="createClassForm">
@@ -40,13 +37,15 @@
                 <button type="submit">Create Class</button>
             </form>
         </section>
-
+        <section id="searchClasses">
+            <h2>Search Classes</h2>
+            <input type="text" id="searchInput" placeholder="Search by class name or subject">
+        </section>
         <section id="myClasses">
             <h2>My Classes</h2>
             <div id="classesContainer"></div>
         </section>
     </main>
-
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -54,7 +53,6 @@
             <div id="modalBody"></div>
         </div>
     </div>
-
     <script type="module" src="dashboard.js"></script>
     <script type="module" src="/background/access.js"></script>
 </body>
