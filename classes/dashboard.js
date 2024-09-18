@@ -135,12 +135,28 @@ async function createUserProfile() {
 
 // Generate a unique class code
 function generateClassCode() {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
     let code = '';
-    for (let i = 0; i < 6; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length));
+
+    // Generate 5 random letters
+    for (let i = 0; i < 5; i++) {
+        code += letters.charAt(Math.floor(Math.random() * letters.length));
     }
+
+    // Generate 1-2 random numbers
+    const numCount = Math.floor(Math.random() * 2) + 1;
+    for (let i = 0; i < numCount; i++) {
+        code += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    }
+
     return code;
+}
+
+// Validate class code format
+function validateClassCode(code) {
+    const regex = /^[A-Z]{5}[0-9]{1,2}$/;
+    return regex.test(code);
 }
 
 // Join Class
@@ -150,7 +166,13 @@ joinClassForm.addEventListener('submit', (e) => {
     joinClass(classCode);
 });
 
+// Join Class
 async function joinClass(classCode) {
+    if (!validateClassCode(classCode)) {
+        showNotification('Invalid class code format. Please try again.', 'error');
+        return;
+    }
+
     try {
         const classRef = ref(database, `classes/${classCode}`);
         const classSnapshot = await get(classRef);
