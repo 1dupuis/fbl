@@ -73,7 +73,7 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// Load user data
+// Remove loadUserClasses call from loadUserData function
 async function loadUserData() {
     try {
         const userRef = ref(database, `users/${currentUser.uid}`);
@@ -199,7 +199,7 @@ async function joinClass(classCode) {
             await set(classMembersRef, true);
 
             showNotification('Successfully joined the class!', 'success');
-            loadUserClasses();
+            loadUserClasses(); // Refresh the class list
         } else {
             showNotification('Class not found. Please check the class code.', 'error');
         }
@@ -253,7 +253,7 @@ async function loadUserClasses() {
         const userClassesRef = ref(database, `users/${currentUser.uid}/classes`);
         const userClassesSnapshot = await get(userClassesRef);
 
-        classesContainer.innerHTML = '';
+        classesContainer.innerHTML = ''; // Clear existing content
 
         if (userClassesSnapshot.exists()) {
             const classes = userClassesSnapshot.val();
@@ -694,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user) {
             currentUser = user;
             loadUserData();
-            loadUserClasses();
+            loadUserClasses(); // Call loadUserClasses only once here
         } else {
             window.location.href = '/login.html';
         }
