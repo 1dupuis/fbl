@@ -327,7 +327,7 @@ window.showClassDetails = async function(classCode) {
         const classData = classSnapshot.val();
 
         // Check if the current user is a member or teacher of the class
-        if (classData.teacher !== currentUser.uid && !classData.members[currentUser.uid]) {
+        if (classData.teacher !== currentUser.uid && (!classData.members || !classData.members[currentUser.uid])) {
             throw new Error("You don't have permission to view this class");
         }
 
@@ -342,7 +342,7 @@ window.showClassDetails = async function(classCode) {
             <p><strong>Teacher:</strong> ${teacherData.username}</p>
             <p><strong>Class Code:</strong> ${classCode}</p>
             <p><strong>Created At:</strong> ${new Date(classData.createdAt).toLocaleString()}</p>
-            <button onclick="leaveClass('${classCode}')">Leave Class</button>
+            ${currentUser.uid !== classData.teacher ? `<button onclick="leaveClass('${classCode}')">Leave Class</button>` : ''}
             ${currentUser.uid === classData.teacher ? `
                 <button onclick="editClass('${classCode}')">Edit Class</button>
                 <button onclick="deleteClass('${classCode}')">Delete Class</button>
