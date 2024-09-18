@@ -316,42 +316,34 @@ function createClassCard(classCode, classData) {
 
 // Show class details
 window.showClassDetails = async function(classCode) {
-    if (!currentUser || !currentUser.uid) {
-        console.error('User not authenticated');
-        showNotification('Please log in to view class details.', 'error');
-        return;
-    }
-
     try {
-        console.log('Attempting to read class:', classCode);
-        console.log('Current user:', currentUser.uid);
-
         const classRef = ref(database, `classes/${classCode}`);
         const classSnapshot = await get(classRef);
-        
-        console.log('Class data retrieved:', classSnapshot.exists());
 
         if (!classSnapshot.exists()) {
             throw new Error("Class not found");
         }
-        
+
         const classData = classSnapshot.val();
-        console.log('Class data:', classData);
 
         // Check if the current user is a member or teacher of the class
         if (classData.teacher !== currentUser.uid && (!classData.members || !classData.members[currentUser.uid])) {
             throw new Error("You don't have permission to view this class");
         }
 
-        const teacherRef = ref(database, `users/${classData.teacher}`);
-        const teacherSnapshot = await get(teacherRef);
-        const teacherData = teacherSnapshot.val();
+        let teacherData = {};
+        if (classData.teacher === currentUser.uid) {
+            // Only fetch teacher's data if the current user is the teacher
+            const teacherRef = ref(database, `users/${classData.teacher}`);
+            const teacherSnapshot = await get(teacherRef);
+            teacherData = teacherSnapshot.val();
+        }
 
         modalTitle.textContent = classData.name;
         modalBody.innerHTML = `
             <p><strong>Subject:</strong> ${classData.subject}</p>
             <p><strong>Description:</strong> ${classData.description || 'No description available.'}</p>
-            <p><strong>Teacher:</strong> ${teacherData.username}</p>
+            <p><strong>Teacher:</strong> ${classData.teacher === currentUser.uid ? teacherData.username : 'You are not the teacher'}</p>
             <p><strong>Class Code:</strong> ${classCode}</p>
             <p><strong>Created At:</strong> ${new Date(classData.createdAt).toLocaleString()}</p>
             ${currentUser.uid !== classData.teacher ? `<button onclick="leaveClass('${classCode}')">Leave Class</button>` : ''}
@@ -363,6 +355,7 @@ window.showClassDetails = async function(classCode) {
             <button onclick="viewAssignments('${classCode}')">View Assignments</button>
             <button onclick="showClassDiscussion('${classCode}')">Class Discussion</button>
         `;
+
         modal.style.display = 'block';
     } catch (error) {
         console.error('Error loading class details:', error);
@@ -378,7 +371,7 @@ window.showClassDetails = async function(classCode) {
             showNotification('Failed to load class details. Please try again.', 'error');
         }
     }
-}
+};
 
 // Leave class
 window.leaveClass = async function(classCode) {
