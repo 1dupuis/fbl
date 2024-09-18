@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUserData();
             loadUserClasses();
         } else {
-            window.location.href = '/login.html';
+            window.location.href = '/account/signup';
         }
     });
 
