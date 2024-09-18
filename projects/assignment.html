@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment</title>
+    <link rel="stylesheet" href="assignment.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1 id="pageTitle">Assignment</h1>
+        <nav>
+            <a href="/dashboard.html">Back to Dashboard</a>
+        </nav>
+    </header>
+    <main>
+        <div id="loadingIndicator" class="loading">Loading...</div>
+        <div id="content" style="display:none;">
+            <div id="assignmentDetails"></div>
+            <div id="submissionArea">
+                <div id="editMode" style="display:none;">
+                    <textarea id="submissionContent" rows="10" cols="50"></textarea>
+                    <button id="saveSubmission">Save Submission</button>
+                </div>
+                <div id="viewMode" style="display:none;">
+                    <div id="submissionContent"></div>
+                </div>
+            </div>
+            <div id="feedback"></div>
+        </div>
+    </main>
+    <script type="module" src="assignment.js"></script>
+</body>
+</html>
