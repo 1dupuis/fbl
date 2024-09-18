@@ -370,6 +370,31 @@ window.editClass = async function(classCode) {
     }
 }
 
+// Add assignment to class
+window.addAssignment = async function(classCode) {
+    const title = prompt('Enter assignment title:');
+    const description = prompt('Enter assignment description:');
+    const dueDate = prompt('Enter due date (YYYY-MM-DD):');
+
+    if (title && description && dueDate) {
+        try {
+            const assignmentsRef = ref(database, `classes/${classCode}/assignments`);
+            const newAssignmentRef = push(assignmentsRef);
+            await set(newAssignmentRef, {
+                title,
+                description,
+                dueDate,
+                createdAt: new Date().toISOString()
+            });
+            showNotification('Assignment added successfully!', 'success');
+            showClassDetails(classCode);
+        } catch (error) {
+            console.error('Error adding assignment:', error);
+            showNotification('Failed to add assignment. Please try again.', 'error');
+        }
+    }
+}
+
 // Delete class
 window.deleteClass = async function(classCode) {
     if (confirm('Are you sure you want to delete this class? This action cannot be undone.')) {
