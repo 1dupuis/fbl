@@ -23,7 +23,8 @@ import {
     remove, 
     query, 
     orderByChild, 
-    equalTo 
+    equalTo,
+    onValue
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 import { resetInactivityTimer } from '/background/access.js';
 
@@ -384,7 +385,8 @@ window.addAssignment = async function(classCode) {
                 title,
                 description,
                 dueDate,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                teacherId: currentUser.uid
             });
             showNotification('Assignment added successfully!', 'success');
             showClassDetails(classCode);
@@ -486,7 +488,7 @@ window.changePassword = async function() {
 logoutLink.addEventListener('click', (e) => {
     e.preventDefault();
     signOut(auth).then(() => {
-        window.location.href = '/account/signup';
+        window.location.href = '/login.html';
     }).catch((error) => {
         console.error('Error signing out:', error);
         showNotification('Failed to sign out. Please try again.', 'error');
@@ -586,20 +588,25 @@ window.showClassDiscussion = async function(classCode) {
         modalBody.innerHTML = discussionHTML;
         modal.style.display = 'block';
 
-        if (discussionSnapshot.exists()) {
-            const messages = discussionSnapshot.val();
-            const messagesElement = document.getElementById('discussionMessages');
-            for (const [id, message] of Object.entries(messages)) {
-                const messageElement = document.createElement('div');
-                messageElement.className = 'message';
-                messageElement.innerHTML = `
-                    <strong>${message.username}</strong>
-                    <p>${message.content}</p>
-                    <small>${new Date(message.timestamp).toLocaleString()}</small>
-                `;
-                messagesElement.appendChild(messageElement);
+        const messagesElement = document.getElementById('discussionMessages');
+        
+        // Set up real-time listener for new messages
+        onValue(discussionRef, (snapshot) => {
+            messagesElement.innerHTML = '';
+            if (snapshot.exists()) {
+                const messages = snapshot.val();
+                for (const [id, message] of Object.entries(messages)) {
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'message';
+                    messageElement.innerHTML = `
+                        <strong>${message.username}</strong>
+                        <p>${message.content}</p>
+                        <small>${new Date(message.timestamp).toLocaleString()}</small>
+                    `;
+                    messagesElement.appendChild(messageElement);
+                }
             }
-        }
+        });
     } catch (error) {
         console.error('Error loading class discussion:', error);
         showNotification('Failed to load class discussion. Please try again.', 'error');
@@ -619,7 +626,6 @@ window.postMessage = async function(classCode) {
                 timestamp: new Date().toISOString()
             });
             document.getElementById('newMessage').value = '';
-            showClassDiscussion(classCode);
         } catch (error) {
             console.error('Error posting message:', error);
             showNotification('Failed to post message. Please try again.', 'error');
@@ -690,13 +696,25 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUserData();
             loadUserClasses();
         } else {
-            window.location.href = '/account/signup';
+            window.location.href = '/login.html';
         }
     });
 
     // Reset inactivity timer on user interaction
     document.addEventListener('mousemove', resetInactivityTimer);
     document.addEventListener('keypress', resetInactivityTimer);
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    // Close modal when clicking on close button
+    closeModal.onclick = function() {
+        modal.style.display = "none";
+    }
 });
 
 // Export functions for use in HTML
