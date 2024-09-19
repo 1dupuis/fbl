@@ -15,8 +15,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 // Import Three.js and OrbitControls
-//import * as THREE from 'three';
-//import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 // Initialize Firebase (replace with your own config)
 const firebaseConfig = {
