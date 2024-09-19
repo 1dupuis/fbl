@@ -14,16 +14,19 @@ import {
     push
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
+// Import Three.js and OrbitControls
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import { OrbitControls } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/controls/OrbitControls.js';
+
 // Initialize Firebase (replace with your own config)
 const firebaseConfig = {
-    apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
-    authDomain: "dupuis-lol.firebaseapp.com",
-    databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
-    projectId: "dupuis-lol",
-    storageBucket: "dupuis-lol.appspot.com",
-    messagingSenderId: "807402660080",
-    appId: "1:807402660080:web:545d4e1287f5803ebda235",
-    measurementId: "G-TR8JMF5FRY"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -37,6 +40,8 @@ let currentMode = '3d';
 let currentPage = 0;
 let pages = [];
 let isEditing = false;
+let isDragging = false;
+let lastMousePosition = { x: 0, y: 0 };
 
 // Three.js variables
 let scene, camera, renderer, book, light, controls;
@@ -57,7 +62,7 @@ function init3DScene() {
         new THREE.MeshPhongMaterial({ color: 0x1E88E5 }), // Left side
         new THREE.MeshPhongMaterial({ color: 0x1565C0 }), // Top side
         new THREE.MeshPhongMaterial({ color: 0x1565C0 }), // Bottom side
-        new THREE.MeshPhongMaterial({ color: 0xFFFFFF }), // Front side (page)
+        new THREE.MeshPhongMaterial({ color: 0xFFFFFF, map: new THREE.Texture() }), // Front side (page)
         new THREE.MeshPhongMaterial({ color: 0x1565C0 })  // Back side
     ];
     book = new THREE.Mesh(bookGeometry, bookMaterials);
@@ -74,10 +79,18 @@ function init3DScene() {
     camera.position.z = 10;
 
     // Add OrbitControls
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.25;
     controls.enableZoom = true;
+
+    // Add event listeners for 3D interactions
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
 
     // Add event listener for window resize
     window.addEventListener('resize', onWindowResize, false);
@@ -97,6 +110,66 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+}
+
+// Mouse and touch event handlers
+function onMouseDown(event) {
+    isDragging = true;
+    lastMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+    };
+}
+
+function onMouseMove(event) {
+    if (!isDragging) return;
+    const deltaMove = {
+        x: event.clientX - lastMousePosition.x,
+        y: event.clientY - lastMousePosition.y
+    };
+    rotateBook(deltaMove);
+    lastMousePosition = {
+        x: event.clientX,
+        y: event.clientY
+    };
+}
+
+function onMouseUp() {
+    isDragging = false;
+}
+
+function onTouchStart(event) {
+    event.preventDefault();
+    if (event.touches.length === 1) {
+        isDragging = true;
+        lastMousePosition = {
+            x: event.touches[0].pageX,
+            y: event.touches[0].pageY
+        };
+    }
+}
+
+function onTouchMove(event) {
+    event.preventDefault();
+    if (!isDragging) return;
+    const deltaMove = {
+        x: event.touches[0].pageX - lastMousePosition.x,
+        y: event.touches[0].pageY - lastMousePosition.y
+    };
+    rotateBook(deltaMove);
+    lastMousePosition = {
+        x: event.touches[0].pageX,
+        y: event.touches[0].pageY
+    };
+}
+
+function onTouchEnd() {
+    isDragging = false;
+}
+
+function rotateBook(deltaMove) {
+    book.rotation.y += deltaMove.x * 0.005;
+    book.rotation.x += deltaMove.y * 0.005;
 }
 
 // Function to load assignment details
@@ -273,6 +346,22 @@ function signOutUser() {
     });
 }
 
+// Function to export assignment as PDF
+function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    pages.forEach((page, index) => {
+        if (index > 0) {
+            doc.addPage();
+        }
+        doc.setFontSize(12);
+        doc.text(page, 10, 10);
+    });
+    
+    doc.save(`${currentAssignment.title}.pdf`);
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -308,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggleEdit').addEventListener('click', toggleEditMode);
     document.getElementById('submissionContent').addEventListener('input', handleContentEdit);
     document.getElementById('signOut').addEventListener('click', signOutUser);
+    document.getElementById('exportPDF').addEventListener('click', exportToPDF);
 
     // Add key event listeners for page navigation
     document.addEventListener('keydown', (event) => {
@@ -327,3 +417,20 @@ window.saveSubmission = saveSubmission;
 window.setPageMode = setPageMode;
 window.toggleEditMode = toggleEditMode;
 window.signOutUser = signOutUser;
+window.exportToPDF = exportToPDF;
+window.handleContentEdit = handleContentEdit;
+window.showNotification = showNotification;
+window.init3DScene = init3DScene;
+window.onWindowResize = onWindowResize;
+window.animate = animate;
+window.onMouseDown = onMouseDown;
+window.onMouseMove = onMouseMove;
+window.onMouseUp = onMouseUp;
+window.onTouchStart = onTouchStart;
+window.onTouchMove = onTouchMove;
+window.onTouchEnd = onTouchEnd;
+window.rotateBook = rotateBook;
+window.loadAssignment = loadAssignment;
+window.displayAssignmentDetails = displayAssignmentDetails;
+window.loadSubmission = loadSubmission;
+window.updateBookContent = updateBookContent;
