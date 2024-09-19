@@ -1,10 +1,10 @@
 // Import Firebase modules
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { 
     getAuth,
     onAuthStateChanged,
     signOut
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
     getDatabase,
     ref, 
@@ -12,11 +12,11 @@ import {
     get, 
     onValue,
     push
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 // Import Three.js and OrbitControls
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
-import { OrbitControls } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/controls/OrbitControls.js';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
+import { OrbitControls } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/examples/jsm/controls/OrbitControls.js';
 
 // Initialize Firebase (replace with your own config)
 const firebaseConfig = {
@@ -34,6 +34,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
 
+// State variables
 let currentUser = null;
 let currentAssignment = null;
 let currentClass = null;
@@ -140,8 +141,8 @@ function onMouseUp() {
 }
 
 function onTouchStart(event) {
-    event.preventDefault();
     if (event.touches.length === 1) {
+        event.preventDefault();
         isDragging = true;
         lastMousePosition = {
             x: event.touches[0].pageX,
@@ -151,8 +152,8 @@ function onTouchStart(event) {
 }
 
 function onTouchMove(event) {
+    if (!isDragging || event.touches.length !== 1) return;
     event.preventDefault();
-    if (!isDragging) return;
     const deltaMove = {
         x: event.touches[0].pageX - lastMousePosition.x,
         y: event.touches[0].pageY - lastMousePosition.y
@@ -202,7 +203,7 @@ function displayAssignmentDetails() {
     const descriptionHtml = converter.makeHtml(currentAssignment.description);
     
     detailsElement.innerHTML = `
-        <h2>${currentAssignment.title}</h2>
+        <h2>${escapeHtml(currentAssignment.title)}</h2>
         <div>${descriptionHtml}</div>
         <p><strong>Due:</strong> ${new Date(currentAssignment.dueDate).toLocaleString()}</p>
     `;
@@ -363,6 +364,16 @@ function exportToPDF() {
     doc.save(`${currentAssignment.title}.pdf`);
 }
 
+// Utility function to escape HTML
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -408,6 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
             navigatePage('next');
         }
     });
+
+    // Set up auto-save functionality
+    let autoSaveTimer;
+    document.getElementById('submissionContent').addEventListener('input', () => {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(saveSubmission, 5000); // Auto-save after 5 seconds of inactivity
+    });
+
+    // Set up confirmation before leaving the page
+    window.addEventListener('beforeunload', (event) => {
+        event.preventDefault(); // Cancel the event
+        event.returnValue = ''; // Display a default message in most browsers
+    });
 });
 
 // Export functions for use in HTML
@@ -419,19 +443,22 @@ window.setPageMode = setPageMode;
 window.toggleEditMode = toggleEditMode;
 window.signOutUser = signOutUser;
 window.exportToPDF = exportToPDF;
-window.handleContentEdit = handleContentEdit;
-window.showNotification = showNotification;
-window.init3DScene = init3DScene;
-window.onWindowResize = onWindowResize;
-window.animate = animate;
-window.onMouseDown = onMouseDown;
-window.onMouseMove = onMouseMove;
-window.onMouseUp = onMouseUp;
-window.onTouchStart = onTouchStart;
-window.onTouchMove = onTouchMove;
-window.onTouchEnd = onTouchEnd;
-window.rotateBook = rotateBook;
-window.loadAssignment = loadAssignment;
-window.displayAssignmentDetails = displayAssignmentDetails;
-window.loadSubmission = loadSubmission;
-window.updateBookContent = updateBookContent;
+
+// Error handling wrapper
+function errorHandler(func) {
+    return function (...args) {
+        try {
+            return func.apply(this, args);
+        } catch (error) {
+            console.error(`Error in ${func.name}:`, error);
+            showNotification(`An error occurred. Please try again.`, 'error');
+        }
+    };
+}
+
+// Wrap all exported functions with error handler
+Object.keys(window).forEach(key => {
+    if (typeof window[key] === 'function' && key !== 'errorHandler') {
+        window[key] = errorHandler(window[key]);
+    }
+});
