@@ -6,6 +6,8 @@
     <title>3D Assignment Book</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assignment.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <header>
@@ -15,6 +17,7 @@
                 <a href="/classes/dashboard">Dashboard</a>
                 <a href="#" id="toggleViewMode">Toggle 2D/3D View</a>
                 <a href="#" id="userProfile">Profile</a>
+                <a href="#" id="signOut">Sign Out</a>
             </nav>
         </div>
     </header>
@@ -29,13 +32,16 @@
                 <span id="pageNumber">Page 1</span>
                 <button id="nextPage">Next Page</button>
                 <button id="addPage">Add Page</button>
+                <button id="deletePage">Delete Page</button>
                 <button id="saveBook">Save Book</button>
+                <button id="toggleEdit">Edit</button>
+                <button id="exportPDF">Export to PDF</button>
             </div>
             <div id="bookContainer"></div>
             <div id="2dView" style="display:none;">
                 <div id="assignmentDetails"></div>
                 <div id="submissionArea">
-                    <textarea id="submissionContent" rows="10" cols="50"></textarea>
+                    <textarea id="submissionContent" rows="10" cols="50" readonly></textarea>
                 </div>
             </div>
         </div>
@@ -44,18 +50,5 @@
         <p>&copy; 2024 3D Assignment Book. All rights reserved.</p>
     </footer>
     <script type="module" src="assignment.js"></script>
-    <!--<script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.134.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.134.0/examples/jsm/controls/OrbitControls.js';
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.update(); !-->
-</script>
 </body>
 </html>
