@@ -1,4 +1,4 @@
-// Import Firebase modules
+// Import Firebase modules from Firebase CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { 
     getAuth,
@@ -14,7 +14,7 @@ import {
     push
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-// Import Three.js and OrbitControls
+// Import Three.js and OrbitControls from unpkg CDN with relative paths
 import * as THREE from 'https://unpkg.com/three@0.134.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.134.0/examples/jsm/controls/OrbitControls.js';
 
