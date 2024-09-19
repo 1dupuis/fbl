@@ -1,4 +1,4 @@
-// Import Firebase modules from Firebase CDN
+// Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { 
     getAuth,
@@ -14,9 +14,9 @@ import {
     push
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-// Import Three.js and OrbitControls from unpkg CDN with relative paths
-import * as THREE from 'https://unpkg.com/three@0.134.0/build/three.module.js';
-import { OrbitControls } from 'https://unpkg.com/three@0.134.0/examples/jsm/controls/OrbitControls.js';
+// Import Three.js and OrbitControls
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+import { OrbitControls } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/jsm/controls/OrbitControls.js';
 
 // Initialize Firebase (replace with your own config)
 const firebaseConfig = {
@@ -379,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const assignmentId = urlParams.get('id');
     const classCode = urlParams.get('class');
+    const mode = urlParams.get('mode');
 
     if (!assignmentId || !classCode) {
         showNotification('Invalid assignment or class.', 'error');
@@ -393,6 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAssignment(assignmentId, classCode).then(() => {
                 document.getElementById('loadingIndicator').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
+                if (mode === 'edit') {
+                    setPageMode('2d');
+                    toggleEditMode();
+                }
             });
         } else {
             window.location.href = '/account/login';
@@ -429,20 +434,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Set up confirmation before leaving the page
     window.addEventListener('beforeunload', (event) => {
-        event.preventDefault(); // Cancel the event
-        event.returnValue = ''; // Display a default message in most browsers
+        if (isEditing) {
+            event.preventDefault(); // Cancel the event
+            event.returnValue = ''; // Display a default message in most browsers
+        }
     });
 });
-
-// Export functions for use in HTML
-window.navigatePage = navigatePage;
-window.addPage = addPage;
-window.deletePage = deletePage;
-window.saveSubmission = saveSubmission;
-window.setPageMode = setPageMode;
-window.toggleEditMode = toggleEditMode;
-window.signOutUser = signOutUser;
-window.exportToPDF = exportToPDF;
 
 // Error handling wrapper
 function errorHandler(func) {
