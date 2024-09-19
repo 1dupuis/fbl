@@ -49,6 +49,14 @@
     <footer>
         <p>&copy; 2024 3D Assignment Book. All rights reserved.</p>
     </footer>
-    <script type="module" src="projects/assignment.js"></script>
+<script type="importmap">
+    {
+        "imports": {
+        "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js",
+        "three/examples/jsm/controls/OrbitControls": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/examples/jsm/controls/OrbitControls.js"
+        }
+    }
+</script>
+    <script type="module" src="assignment.js"></script>
 </body>
 </html>
