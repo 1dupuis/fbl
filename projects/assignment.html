@@ -3,33 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assignment</title>
+    <title>3D Assignment Book</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assignment.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
 </head>
 <body>
     <header>
-        <h1 id="pageTitle">Assignment</h1>
-        <nav>
-            <a href="/classes/dashboard">Back to Dashboard</a>
-        </nav>
+        <div class="header-content">
+            <h1>3D Assignment Book</h1>
+            <nav>
+                <a href="/classes/dashboard">Dashboard</a>
+                <a href="#" id="toggleViewMode">Toggle 2D/3D View</a>
+                <a href="#" id="userProfile">Profile</a>
+            </nav>
+        </div>
     </header>
     <main>
-        <div id="loadingIndicator" class="loading">Loading...</div>
+        <div id="loadingIndicator" class="loading">
+            <div class="spinner"></div>
+            <p>Loading your assignment book...</p>
+        </div>
         <div id="content" style="display:none;">
-            <div id="assignmentDetails"></div>
-            <div id="submissionArea">
-                <div id="editMode" style="display:none;">
+            <div id="controls">
+                <button id="prevPage">Previous Page</button>
+                <span id="pageNumber">Page 1</span>
+                <button id="nextPage">Next Page</button>
+                <button id="addPage">Add Page</button>
+                <button id="saveBook">Save Book</button>
+            </div>
+            <div id="bookContainer"></div>
+            <div id="2dView" style="display:none;">
+                <div id="assignmentDetails"></div>
+                <div id="submissionArea">
                     <textarea id="submissionContent" rows="10" cols="50"></textarea>
-                    <button id="saveSubmission">Save Submission</button>
-                </div>
-                <div id="viewMode" style="display:none;">
-                    <div id="submissionContent"></div>
                 </div>
             </div>
-            <div id="feedback"></div>
         </div>
     </main>
+    <footer>
+        <p>&copy; 2024 3D Assignment Book. All rights reserved.</p>
+    </footer>
     <script type="module" src="assignment.js"></script>
 </body>
 </html>
