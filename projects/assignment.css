@@ -21,6 +21,11 @@ header {
     background-color: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 1rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
 }
 
 .header-content {
@@ -51,7 +56,7 @@ nav a:hover {
 
 main {
     max-width: 1200px;
-    margin: 2rem auto;
+    margin: 5rem auto 2rem;
     padding: 0 1rem;
 }
 
@@ -82,6 +87,7 @@ main {
     justify-content: center;
     align-items: center;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
 }
 
 button {
@@ -89,7 +95,7 @@ button {
     color: white;
     border: none;
     padding: 0.5rem 1rem;
-    margin: 0 0.5rem;
+    margin: 0.5rem;
     font-size: 1rem;
     cursor: pointer;
     border-radius: 4px;
@@ -140,9 +146,29 @@ footer {
     padding: 1rem;
     background-color: white;
     border-top: 1px solid var(--border-color);
-    position: absolute;
+    position: fixed;
     bottom: 0;
-    width: 100%;
+    left: 0;
+    right: 0;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+    z-index: 1001;
+}
+
+.notification.success {
+    background-color: var(--secondary-color);
+}
+
+.notification.error {
+    background-color: #EA4335;
 }
 
 @media (max-width: 768px) {
@@ -161,10 +187,15 @@ footer {
     }
 
     #controls {
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: stretch;
     }
 
     button {
-        margin-bottom: 0.5rem;
+        margin: 0.25rem 0;
+    }
+
+    #bookContainer {
+        height: 400px;
     }
 }
