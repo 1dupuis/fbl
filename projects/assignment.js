@@ -81,7 +81,7 @@ function init3DScene() {
     camera.position.z = 10;
 
     // Add OrbitControls
-    controls = new OrbitControls(camera, renderer.domElement); //THREE.OrbitControls not working?
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.25;
     controls.enableZoom = true;
