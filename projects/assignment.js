@@ -440,22 +440,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-// Error handling wrapper
-function errorHandler(func) {
-    return function (...args) {
-        try {
-            return func.apply(this, args);
-        } catch (error) {
-            console.error(`Error in ${func.name}:`, error);
-            showNotification(`An error occurred. Please try again.`, 'error');
-        }
-    };
-}
-
-// Wrap all exported functions with error handler
-Object.keys(window).forEach(key => {
-    if (typeof window[key] === 'function' && key !== 'errorHandler') {
-        window[key] = errorHandler(window[key]);
-    }
-});
