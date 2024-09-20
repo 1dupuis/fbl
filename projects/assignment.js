@@ -14,7 +14,7 @@ import {
     push
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
-// Initialize Firebase (replace with your own config)
+// Initialize Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
     authDomain: "dupuis-lol.firebaseapp.com",
