@@ -49,14 +49,39 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAssignment(assignmentId, classCode).then(() => {
                 document.getElementById('loadingIndicator').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
-                init3DScene();
-                setupEventListeners();
+                initializeApplication();
+            }).catch(error => {
+                console.error('Error loading assignment:', error);
+                showNotification('Failed to load assignment. Please try again.', 'error');
             });
         } else {
-            window.location.href = '/account/login';
+            window.location.href = '/account/signup';
         }
     });
 });
+
+// Function to initialize the application
+function initializeApplication() {
+    if (typeof THREE === 'undefined') {
+        console.error('THREE.js is not loaded');
+        showNotification('Failed to load 3D library. Please refresh the page.', 'error');
+        return;
+    }
+
+    if (typeof THREE.OrbitControls === 'undefined') {
+        console.error('THREE.OrbitControls is not loaded');
+        showNotification('Failed to load 3D controls. Please refresh the page.', 'error');
+        return;
+    }
+
+    try {
+        init3DScene();
+        setupEventListeners();
+    } catch (error) {
+        console.error('Error initializing application:', error);
+        showNotification('Failed to initialize application. Please refresh the page.', 'error');
+    }
+}
 
 // Function to load assignment details
 async function loadAssignment(assignmentId, classCode) {
