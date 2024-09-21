@@ -1,18 +1,6 @@
-// Import Firebase modules ////
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { 
-    getAuth,
-    onAuthStateChanged,
-    signOut
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { 
-    getDatabase,
-    ref, 
-    set, 
-    get, 
-    onValue,
-    push
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -25,7 +13,6 @@ const firebaseConfig = {
     appId: "1:807402660080:web:545d4e1287f5803ebda235",
     measurementId: "G-TR8JMF5FRY"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
@@ -35,140 +22,41 @@ let currentUser = null;
 let currentAssignment = null;
 let currentClass = null;
 let currentMode = '3d';
-let currentPage = 0;
-let pages = [];
+let currentSpread = 0;
+let spreads = [{ left: '', right: '' }];
 let isEditing = false;
-let isDragging = false;
-let lastMousePosition = { x: 0, y: 0 };
 
 // Three.js variables
-let scene, camera, renderer, book, light, controls;
+let scene, camera, renderer, book, leftPage, rightPage, pen;
+let raycaster, mouse;
+let writing = false;
+let currentPageTexture;
 
-// Function to initialize the 3D scene
-function init3DScene() {
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0xE8F0FE, 1);
-    document.getElementById('bookContainer').appendChild(renderer.domElement);
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const assignmentId = urlParams.get('id');
+    const classCode = urlParams.get('class');
 
-    // Create book geometry
-    const bookGeometry = new THREE.BoxGeometry(5, 7, 0.5);
-    const bookMaterials = [
-        new THREE.MeshPhongMaterial({ color: 0x1E88E5 }), // Right side
-        new THREE.MeshPhongMaterial({ color: 0x1E88E5 }), // Left side
-        new THREE.MeshPhongMaterial({ color: 0x1565C0 }), // Top side
-        new THREE.MeshPhongMaterial({ color: 0x1565C0 }), // Bottom side
-        new THREE.MeshPhongMaterial({ color: 0xFFFFFF, map: new THREE.Texture() }), // Front side (page)
-        new THREE.MeshPhongMaterial({ color: 0x1565C0 })  // Back side
-    ];
-    book = new THREE.Mesh(bookGeometry, bookMaterials);
-    scene.add(book);
-
-    // Add lighting
-    light = new THREE.PointLight(0xFFFFFF, 1, 100);
-    light.position.set(0, 0, 10);
-    scene.add(light);
-
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-
-    camera.position.z = 10;
-
-    // Add OrbitControls
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
-    controls.enableZoom = true;
-
-    // Add event listeners for 3D interactions
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
-    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
-    renderer.domElement.addEventListener('touchend', onTouchEnd);
-
-    // Add event listener for window resize
-    window.addEventListener('resize', onWindowResize, false);
-
-    animate();
-}
-
-// Function to handle window resize
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-// Animation loop
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
-
-// Mouse and touch event handlers
-function onMouseDown(event) {
-    isDragging = true;
-    lastMousePosition = {
-        x: event.clientX,
-        y: event.clientY
-    };
-}
-
-function onMouseMove(event) {
-    if (!isDragging) return;
-    const deltaMove = {
-        x: event.clientX - lastMousePosition.x,
-        y: event.clientY - lastMousePosition.y
-    };
-    rotateBook(deltaMove);
-    lastMousePosition = {
-        x: event.clientX,
-        y: event.clientY
-    };
-}
-
-function onMouseUp() {
-    isDragging = false;
-}
-
-function onTouchStart(event) {
-    if (event.touches.length === 1) {
-        event.preventDefault();
-        isDragging = true;
-        lastMousePosition = {
-            x: event.touches[0].pageX,
-            y: event.touches[0].pageY
-        };
+    if (!assignmentId || !classCode) {
+        showNotification('Invalid assignment or class.', 'error');
+        return;
     }
-}
 
-function onTouchMove(event) {
-    if (!isDragging || event.touches.length !== 1) return;
-    event.preventDefault();
-    const deltaMove = {
-        x: event.touches[0].pageX - lastMousePosition.x,
-        y: event.touches[0].pageY - lastMousePosition.y
-    };
-    rotateBook(deltaMove);
-    lastMousePosition = {
-        x: event.touches[0].pageX,
-        y: event.touches[0].pageY
-    };
-}
-
-function onTouchEnd() {
-    isDragging = false;
-}
-
-function rotateBook(deltaMove) {
-    book.rotation.y += deltaMove.x * 0.005;
-    book.rotation.x += deltaMove.y * 0.005;
-}
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUser = user;
+            loadAssignment(assignmentId, classCode).then(() => {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                init3DScene();
+                setupEventListeners();
+            });
+        } else {
+            window.location.href = '/account/login';
+        }
+    });
+});
 
 // Function to load assignment details
 async function loadAssignment(assignmentId, classCode) {
@@ -182,7 +70,6 @@ async function loadAssignment(assignmentId, classCode) {
             currentClass = classCode;
             displayAssignmentDetails();
             await loadSubmission();
-            setPageMode(currentMode);
         } else {
             showNotification('Assignment not found.', 'error');
         }
@@ -194,15 +81,9 @@ async function loadAssignment(assignmentId, classCode) {
 
 // Function to display assignment details
 function displayAssignmentDetails() {
-    const detailsElement = document.getElementById('assignmentDetails');
-    const converter = new showdown.Converter();
-    const descriptionHtml = converter.makeHtml(currentAssignment.description);
-    
-    detailsElement.innerHTML = `
-        <h2>${escapeHtml(currentAssignment.title)}</h2>
-        <div>${descriptionHtml}</div>
-        <p><strong>Due:</strong> ${new Date(currentAssignment.dueDate).toLocaleString()}</p>
-    `;
+    document.getElementById('assignmentTitle').textContent = currentAssignment.title;
+    document.getElementById('assignmentDescription').textContent = currentAssignment.description;
+    document.getElementById('assignmentDueDate').textContent = `Due: ${new Date(currentAssignment.dueDate).toLocaleString()}`;
 }
 
 // Function to load user's submission
@@ -213,11 +94,10 @@ async function loadSubmission() {
         
         if (submissionSnapshot.exists()) {
             const submission = submissionSnapshot.val();
-            pages = submission.pages || [''];
+            spreads = submission.spreads || [{ left: '', right: '' }];
         } else {
-            pages = [''];
+            spreads = [{ left: '', right: '' }];
         }
-        currentPage = 0;
         updateBookContent();
     } catch (error) {
         console.error('Error loading submission:', error);
@@ -225,56 +105,247 @@ async function loadSubmission() {
     }
 }
 
-// Function to save submission
-async function saveSubmission() {
-    try {
-        const submissionRef = ref(database, `submissions/${currentClass}/${currentAssignment.id}/${currentUser.uid}`);
-        await set(submissionRef, {
-            pages: pages,
-            lastUpdated: new Date().toISOString()
-        });
-        showNotification('Submission saved successfully!', 'success');
-    } catch (error) {
-        console.error('Error saving submission:', error);
-        showNotification('Failed to save submission. Please try again.', 'error');
-    }
+// Function to initialize the 3D scene
+function init3DScene() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0xE8F0FE, 1);
+    document.getElementById('bookContainer').appendChild(renderer.domElement);
+
+    // Create book
+    const bookGeometry = new THREE.BoxGeometry(10, 7, 0.5);
+    const bookMaterial = new THREE.MeshPhongMaterial({
+        color: 0x1E88E5,
+        specular: 0x111111,
+        shininess: 50
+    });
+    book = new THREE.Mesh(bookGeometry, bookMaterial);
+    scene.add(book);
+
+    // Create pages
+    const pageGeometry = new THREE.PlaneGeometry(4.9, 6.9);
+    const pageMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide });
+    leftPage = new THREE.Mesh(pageGeometry, pageMaterial.clone());
+    rightPage = new THREE.Mesh(pageGeometry, pageMaterial.clone());
+    
+    leftPage.position.set(-2.55, 0, 0.26);
+    rightPage.position.set(2.55, 0, 0.26);
+    
+    book.add(leftPage);
+    book.add(rightPage);
+
+    // Lighting
+    const light = new THREE.PointLight(0xFFFFFF, 1, 100);
+    light.position.set(0, 0, 10);
+    scene.add(light);
+
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    camera.position.z = 10;
+
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.enableZoom = true;
+
+    // Raycaster for writing
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    // Pen
+    const penGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 32);
+    const penMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+    pen = new THREE.Mesh(penGeometry, penMaterial);
+    pen.rotation.x = Math.PI / 2;
+    scene.add(pen);
+
+    animate();
+    updateBookContent();
+}
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
 }
 
 // Function to update book content
 function updateBookContent() {
-    if (currentMode === '3d') {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'black';
-        ctx.font = '24px Arial';
-        
-        const lines = pages[currentPage].split('\n');
-        lines.forEach((line, index) => {
-            ctx.fillText(line, 20, 40 + (index * 30), 472);
-        });
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        book.material[4].map = texture;
-        book.material[4].needsUpdate = true;
-    } else {
-        document.getElementById('submissionContent').value = pages[currentPage];
-    }
-    document.getElementById('pageNumber').textContent = `Page ${currentPage + 1} of ${pages.length}`;
+    const leftCanvas = createPageCanvas(spreads[currentSpread].left);
+    const rightCanvas = createPageCanvas(spreads[currentSpread].right);
+    
+    leftPage.material.map = new THREE.CanvasTexture(leftCanvas);
+    rightPage.material.map = new THREE.CanvasTexture(rightCanvas);
+    
+    leftPage.material.needsUpdate = true;
+    rightPage.material.needsUpdate = true;
+
+    currentPageTexture = rightPage.material.map;
+    updatePageNumber();
 }
 
-// Function to set page mode (3d or 2d)
-function setPageMode(mode) {
-    currentMode = mode;
-    document.getElementById('bookContainer').style.display = currentMode === '3d' ? 'block' : 'none';
-    document.getElementById('2dView').style.display = currentMode === '2d' ? 'block' : 'none';
+// Function to create a canvas with text content
+function createPageCanvas(content) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'black';
+    ctx.font = '24px Arial';
+    
+    const lines = content.split('\n');
+    lines.forEach((line, index) => {
+        ctx.fillText(line, 20, 40 + (index * 30));
+    });
+    
+    return canvas;
+}
+
+// Function to handle writing on the book
+function write(event) {
+    if (!writing || !isEditing) return;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects([leftPage, rightPage]);
+    
+    if (intersects.length > 0) {
+        const intersect = intersects[0];
+        const uv = intersect.uv;
+        const x = Math.floor(uv.x * 512);
+        const y = Math.floor((1 - uv.y) * 512);
+        
+        const canvas = intersect.object === leftPage ? leftPage.material.map.image : rightPage.material.map.image;
+        const context = canvas.getContext('2d');
+        context.fillStyle = document.getElementById('penColor').value;
+        context.beginPath();
+        context.arc(x, y, document.getElementById('penSize').value, 0, 2 * Math.PI);
+        context.fill();
+        
+        intersect.object.material.map.needsUpdate = true;
+    }
+}
+
+// Function to navigate between spreads
+function navigateSpread(direction) {
+    if (direction === 'prev' && currentSpread > 0) {
+        currentSpread--;
+    } else if (direction === 'next' && currentSpread < spreads.length - 1) {
+        currentSpread++;
+    }
+    updateBookContent();
+    animatePageTurn(direction);
+}
+
+// Function to animate page turn
+function animatePageTurn(direction) {
+    const duration = 1000;
+    const start = performance.now();
+    
+    function update(time) {
+        const elapsed = time - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+        
+        if (direction === 'next') {
+            book.rotation.y = Math.PI / 4 * (1 - ease);
+        } else {
+            book.rotation.y = Math.PI / 4 * ease;
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+
+// Function to add a new spread
+function addSpread() {
+    spreads.push({ left: '', right: '' });
+    currentSpread = spreads.length - 1;
     updateBookContent();
 }
 
-// Function to show notification
+// Function to delete the current spread
+function deleteSpread() {
+    if (spreads.length > 1) {
+        spreads.splice(currentSpread, 1);
+        if (currentSpread >= spreads.length) {
+            currentSpread = spreads.length - 1;
+        }
+        updateBookContent();
+    } else {
+        showNotification('Cannot delete the only spread.', 'error');
+    }
+}
+
+// Function to save the book
+async function saveBook() {
+    try {
+        const submissionRef = ref(database, `submissions/${currentClass}/${currentAssignment.id}/${currentUser.uid}`);
+        await set(submissionRef, {
+            spreads: spreads,
+            lastUpdated: new Date().toISOString()
+        });
+        showNotification('Book saved successfully!', 'success');
+    } catch (error) {
+        console.error('Error saving book:', error);
+        showNotification('Failed to save book. Please try again.', 'error');
+    }
+}
+
+// Function to toggle edit mode
+function toggleEditMode() {
+    isEditing = !isEditing;
+    document.getElementById('toggleEdit').textContent = isEditing ? 'View Mode' : 'Edit Mode';
+    document.getElementById('toolbox').style.display = isEditing ? 'block' : 'none';
+    document.getElementById('submissionContent').readOnly = !isEditing;
+    updateBookContent();
+}
+
+// Function to export the book to PDF
+function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    spreads.forEach((spread, index) => {
+        if (index > 0) {
+            doc.addPage();
+        }
+        doc.setFontSize(12);
+        doc.text(`Spread ${index + 1}`, 10, 10);
+        doc.text("Left Page:", 10, 20);
+        doc.text(spread.left, 10, 30);
+        doc.text("Right Page:", 10, 120);
+        doc.text(spread.right, 10, 130);
+    });
+    
+    doc.save(`${currentAssignment.title}.pdf`);
+}
+
+// Function to clear the current page
+function clearPage() {
+    const canvas = currentPageTexture.image;
+    const context = canvas.getContext('2d');
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    currentPageTexture.needsUpdate = true;
+    updateBookContent();
+}
+
+// Function to update the page number display
+function updatePageNumber() {
+    document.getElementById('pageNumber').textContent = `Spread ${currentSpread + 1} of ${spreads.length}`;
+}
+
+// Function to show notifications
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -285,56 +356,113 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// Function to handle page navigation
-function navigatePage(direction) {
-    if (direction === 'prev' && currentPage > 0) {
-        currentPage--;
-    } else if (direction === 'next' && currentPage < pages.length - 1) {
-        currentPage++;
-    }
-    updateBookContent();
+// Function to set up event listeners
+function setupEventListeners() {
+    window.addEventListener('resize', onWindowResize, false);
+    document.getElementById('prevPage').addEventListener('click', () => navigateSpread('prev'));
+    document.getElementById('nextPage').addEventListener('click', () => navigateSpread('next'));
+    document.getElementById('addPage').addEventListener('click', addSpread);
+    document.getElementById('deletePage').addEventListener('click', deleteSpread);
+    document.getElementById('saveBook').addEventListener('click', saveBook);
+    document.getElementById('toggleEdit').addEventListener('click', toggleEditMode);
+    document.getElementById('exportPDF').addEventListener('click', exportToPDF);
+    document.getElementById('clearPage').addEventListener('click', clearPage);
+    document.getElementById('toggleViewMode').addEventListener('click', toggleViewMode);
+    document.getElementById('signOut').addEventListener('click', signOutUser);
+
+    const bookContainer = document.getElementById('bookContainer');
+    bookContainer.addEventListener('mousedown', onMouseDown);
+    bookContainer.addEventListener('mousemove', onMouseMove);
+    bookContainer.addEventListener('mouseup', onMouseUp);
+    bookContainer.addEventListener('touchstart', onTouchStart, { passive: false });
+    bookContainer.addEventListener('touchmove', onTouchMove, { passive: false });
+    bookContainer.addEventListener('touchend', onTouchEnd);
+
+    document.addEventListener('keydown', handleKeyPress);
 }
 
-// Function to add a new page
-function addPage() {
-    pages.push('');
-    currentPage = pages.length - 1;
-    updateBookContent();
+// Function to handle window resize
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Function to delete the current page
-function deletePage() {
-    if (pages.length > 1) {
-        pages.splice(currentPage, 1);
-        if (currentPage >= pages.length) {
-            currentPage = pages.length - 1;
-        }
-        updateBookContent();
-    } else {
-        showNotification('Cannot delete the only page.', 'error');
-    }
+// Mouse and touch event handlers
+function onMouseDown(event) {
+    event.preventDefault();
+    writing = true;
+    updateMousePosition(event);
 }
 
-// Function to handle content editing
-function handleContentEdit() {
+function onMouseMove(event) {
+    event.preventDefault();
+    updateMousePosition(event);
+    write(event);
+}
+
+function onMouseUp(event) {
+    event.preventDefault();
+    writing = false;
+}
+
+function onTouchStart(event) {
+    event.preventDefault();
+    writing = true;
+    updateTouchPosition(event.touches[0]);
+}
+
+function onTouchMove(event) {
+    event.preventDefault();
+    updateTouchPosition(event.touches[0]);
+    write(event.touches[0]);
+}
+
+function onTouchEnd(event) {
+    event.preventDefault();
+    writing = false;
+}
+
+function updateMousePosition(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function updateTouchPosition(touch) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+// Function to toggle between 2D and 3D view
+function toggleViewMode() {
+    currentMode = currentMode === '3d' ? '2d' : '3d';
+    document.getElementById('bookContainer').style.display = currentMode === '3d' ? 'block' : 'none';
+    document.getElementById('2dView').style.display = currentMode === '2d' ? 'block' : 'none';
     if (currentMode === '2d') {
-        pages[currentPage] = document.getElementById('submissionContent').value;
-        updateBookContent();
+        update2DView();
     }
 }
 
-// Function to toggle edit mode
-function toggleEditMode() {
-    isEditing = !isEditing;
-    const editButton = document.getElementById('toggleEdit');
-    editButton.textContent = isEditing ? 'Save' : 'Edit';
-    document.getElementById('submissionContent').readOnly = !isEditing;
-    if (!isEditing) {
-        handleContentEdit();
+// Function to update 2D view
+function update2DView() {
+    const content = spreads.map((spread, index) => 
+        `Spread ${index + 1}:\nLeft Page: ${spread.left}\nRight Page: ${spread.right}\n\n`
+    ).join('');
+    document.getElementById('submissionContent').value = content;
+}
+
+// Function to handle key presses
+function handleKeyPress(event) {
+    if (event.key === 'ArrowLeft') {
+        navigateSpread('prev');
+    } else if (event.key === 'ArrowRight') {
+        navigateSpread('next');
     }
 }
 
-// Function to sign out
+// Function to sign out user
 function signOutUser() {
     signOut(auth).then(() => {
         window.location.href = '/account/login';
@@ -344,95 +472,6 @@ function signOutUser() {
     });
 }
 
-// Function to export assignment as PDF
-function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    pages.forEach((page, index) => {
-        if (index > 0) {
-            doc.addPage();
-        }
-        doc.setFontSize(12);
-        doc.text(page, 10, 10);
-    });
-    
-    doc.save(`${currentAssignment.title}.pdf`);
-}
-
-// Utility function to escape HTML
-function escapeHtml(unsafe) {
-    return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
-}
-
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const assignmentId = urlParams.get('id');
-    const classCode = urlParams.get('class');
-    const mode = urlParams.get('mode');
-
-    if (!assignmentId || !classCode) {
-        showNotification('Invalid assignment or class.', 'error');
-        return;
-    }
-
-    init3DScene();
-
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            currentUser = user;
-            loadAssignment(assignmentId, classCode).then(() => {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-                if (mode === 'edit') {
-                    setPageMode('2d');
-                    toggleEditMode();
-                }
-            });
-        } else {
-            window.location.href = '/account/login';
-        }
-    });
-
-    // Event listeners for controls
-    document.getElementById('prevPage').addEventListener('click', () => navigatePage('prev'));
-    document.getElementById('nextPage').addEventListener('click', () => navigatePage('next'));
-    document.getElementById('addPage').addEventListener('click', addPage);
-    document.getElementById('deletePage').addEventListener('click', deletePage);
-    document.getElementById('saveBook').addEventListener('click', saveSubmission);
-    document.getElementById('toggleViewMode').addEventListener('click', () => setPageMode(currentMode === '3d' ? '2d' : '3d'));
-    document.getElementById('toggleEdit').addEventListener('click', toggleEditMode);
-    document.getElementById('submissionContent').addEventListener('input', handleContentEdit);
-    document.getElementById('signOut').addEventListener('click', signOutUser);
-    document.getElementById('exportPDF').addEventListener('click', exportToPDF);
-
-    // Add key event listeners for page navigation
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowLeft') {
-            navigatePage('prev');
-        } else if (event.key === 'ArrowRight') {
-            navigatePage('next');
-        }
-    });
-
-    // Set up auto-save functionality
-    let autoSaveTimer;
-    document.getElementById('submissionContent').addEventListener('input', () => {
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(saveSubmission, 5000); // Auto-save after 5 seconds of inactivity
-    });
-
-    // Set up confirmation before leaving the page
-    window.addEventListener('beforeunload', (event) => {
-        if (isEditing) {
-            event.preventDefault(); // Cancel the event
-            event.returnValue = ''; // Display a default message in most browsers
-        }
-    });
-});
+init3DScene();
+setupEventListeners();
