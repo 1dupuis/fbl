@@ -1,4 +1,4 @@
-<!DOCTYPE html> <!-- !-->
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -25,30 +25,40 @@
             <p>Loading your assignment book...</p>
         </div>
         <div id="content" style="display:none;">
-            <div id="controls">
-                <button id="prevPage">Previous Page</button>
-                <span id="pageNumber">Page 1</span>
-                <button id="nextPage">Next Page</button>
-                <button id="addPage">Add Page</button>
-                <button id="deletePage">Delete Page</button>
-                <button id="saveBook">Save Book</button>
-                <button id="toggleEdit">Edit</button>
-                <button id="exportPDF">Export to PDF</button>
+            <div id="assignmentInfo">
+                <h2 id="assignmentTitle"></h2>
+                <p id="assignmentDescription"></p>
+                <p id="assignmentDueDate"></p>
+            </div>
+            <div id="bookControls">
+                <button id="prevPage" class="control-btn">Previous Page</button>
+                <span id="pageNumber">Page 1 of 1</span>
+                <button id="nextPage" class="control-btn">Next Page</button>
+                <button id="addPage" class="control-btn">Add Page</button>
+                <button id="deletePage" class="control-btn">Delete Page</button>
+                <button id="saveBook" class="control-btn">Save Book</button>
+                <button id="toggleEdit" class="control-btn">Toggle Edit Mode</button>
+                <button id="exportPDF" class="control-btn">Export to PDF</button>
             </div>
             <div id="bookContainer"></div>
             <div id="2dView" style="display:none;">
-                <div id="assignmentDetails"></div>
-                <div id="submissionArea">
-                    <textarea id="submissionContent" rows="10" cols="50" readonly></textarea>
-                </div>
+                <textarea id="submissionContent" rows="20" cols="80" readonly></textarea>
+            </div>
+            <div id="toolbox">
+                <label for="penColor">Pen Color:</label>
+                <input type="color" id="penColor" value="#000000">
+                <label for="penSize">Pen Size:</label>
+                <input type="range" id="penSize" min="1" max="10" value="2">
+                <button id="clearPage" class="control-btn">Clear Page</button>
             </div>
         </div>
     </main>
     <footer>
         <p>&copy; 2024 3D Assignment Book. All rights reserved.</p>
     </footer>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.122.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script type="module" src="assignment.js"></script>
 </body>
 </html>
