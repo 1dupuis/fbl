@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";//
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getDatabase, ref, push, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
@@ -20,12 +20,14 @@ const auth = getAuth(app);
 const database = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', () => {
+    // DOM elements
     const corkboard = document.getElementById('corkboard');
     const corkboardContainer = document.getElementById('corkboard-container');
     const addNoteBtn = document.getElementById('add-note');
     const noteTitle = document.getElementById('note-title');
     const noteContent = document.getElementById('note-content');
     const searchInput = document.getElementById('search');
+    const searchButton = document.getElementById('search-button');
     const noteColor = document.getElementById('note-color');
     const userInfo = document.getElementById('user-info');
     const userName = document.getElementById('user-name');
@@ -35,7 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
     const resetZoomBtn = document.getElementById('reset-zoom');
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
 
+    // State variables
     let currentUser = null;
     let currentBoard = 'general';
     let panzoomInstance = null;
@@ -78,12 +83,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     addNoteBtn.addEventListener('click', addNote);
     searchInput.addEventListener('input', debounce(searchNotes, 300));
+    searchButton.addEventListener('click', searchNotes);
     toggleThemeBtn.addEventListener('click', toggleTheme);
     logoutBtn.addEventListener('click', logout);
     boardSelect.addEventListener('change', changeBoard);
     zoomInBtn.addEventListener('click', () => panzoomInstance.zoomIn());
     zoomOutBtn.addEventListener('click', () => panzoomInstance.zoomOut());
     resetZoomBtn.addEventListener('click', resetView);
+    menuToggle.addEventListener('click', toggleSidebar);
 
     // User interface functions
     function showLoggedInUI(displayName) {
@@ -100,14 +107,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         panzoomInstance.on('transform', (e) => {
-            const currentScale = panzoomInstance.getTransform().scale;
+            const currentScale = e.getTransform().scale;
             corkboard.style.setProperty('--scale', 1 / currentScale);
         });
     }
 
     function resetView() {
-        panzoomInstance.reset();
-        panzoomInstance.moveTo(2500, 2500);
+        panzoomInstance.moveTo(0, 0);
+        panzoomInstance.zoomAbs(0, 0, 1);
+    }
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('sidebar-open');
     }
 
     // Note management functions
@@ -126,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 content: content,
                 color: color,
                 timestamp: Date.now(),
-                position: { x: 2500, y: 2500 }
+                position: { x: 0, y: 0 }
             };
 
             set(newNoteRef, newNote)
@@ -135,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     noteContent.value = '';
                     showToast('Note added successfully', 'success');
                     createNoteElement(newNoteRef.key, newNote);
-                    resetView();
                 })
                 .catch(error => {
                     showToast('Error adding note: ' + error.message, 'error');
@@ -158,8 +168,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <p>${escapeHTML(note.content)}</p>
             <span class="author">By ${escapeHTML(note.author)}</span>
             <div class="actions">
-                <button class="edit" title="Edit"><i class="fas fa-edit"></i></button>
-                <button class="delete" title="Delete"><i class="fas fa-trash"></i></button>
+                <button class="edit" title="Edit"><span class="material-icons">edit</span></button>
+                <button class="delete" title="Delete"><span class="material-icons">delete</span></button>
             </div>
         `;
 
@@ -274,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleTheme() {
         document.body.classList.toggle('dark-theme');
         const isDarkTheme = document.body.classList.contains('dark-theme');
-        toggleThemeBtn.innerHTML = isDarkTheme ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        toggleThemeBtn.innerHTML = isDarkTheme ? '<span class="material-icons">light_mode</span>' : '<span class="material-icons">dark_mode</span>';
         localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
     }
 
@@ -282,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-theme');
-            toggleThemeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+            toggleThemeBtn.innerHTML = '<span class="material-icons">light_mode</span>';
         }
     }
 
