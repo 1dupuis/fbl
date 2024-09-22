@@ -3,7 +3,7 @@
     --secondary-color: #fbbc05;
     --background-color: #ffffff;
     --text-color: #202124;
-    --sidebar-width: 300px;
+    --sidebar-width: 350px; /* Increased from 300px */
     --app-bar-height: 64px;
     --transition-speed: 0.3s;
     --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
@@ -179,12 +179,12 @@ main {
 .note-input select,
 #board-select {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 12px;
+    padding: 12px; /* Increased from 10px */
+    margin-bottom: 16px; /* Increased from 12px */
     border: 1px solid #dadce0;
     border-radius: 4px;
     font-size: 14px;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .note-input input:focus,
@@ -193,6 +193,7 @@ main {
 #board-select:focus {
     outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
 }
 
 .note-options {
@@ -221,7 +222,7 @@ main {
     background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 12px 24px; /* Increased padding */
     border-radius: 4px;
     font-size: 14px;
     font-weight: 500;
@@ -229,12 +230,13 @@ main {
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: background-color 0.2s, transform 0.2s;
+    transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .button-primary:hover {
     background-color: #3367d6;
     transform: translateY(-1px);
+    box-shadow: var(--shadow-1);
 }
 
 .zoom-controls {
@@ -346,17 +348,45 @@ body.dark-theme {
     background-color: rgba(32, 33, 36, 0.8);
 }
 
+/* New styles for note statistics */
+.note-statistics {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.note-statistics h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+
+.note-statistics ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.note-statistics li {
+    margin-bottom: 8px;
+}
+
+/* Responsive design improvements */
 @media (max-width: 768px) {
+    :root {
+        --sidebar-width: 100%; /* Full width on mobile */
+    }
+
     .sidebar {
         position: fixed;
-        left: -var(--sidebar-width);
+        left: -100%;
         top: var(--app-bar-height);
         bottom: 0;
         z-index: 999;
+        transition: left var(--transition-speed);
     }
 
     .sidebar.open {
-        transform: translateX(var(--sidebar-width));
+        left: 0;
     }
 
     #corkboard-container {
@@ -378,5 +408,10 @@ body.dark-theme {
     .note {
         width: calc(100% - 32px);
         margin: 16px;
+    }
+
+    .zoom-controls {
+        bottom: 16px;
+        right: 16px;
     }
 }
