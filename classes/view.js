@@ -14,6 +14,12 @@ import {
     update,
     onValue
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+import { 
+    getStorage, 
+    ref as storageRef, 
+    uploadBytes, 
+    getDownloadURL 
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -31,6 +37,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
+const storage = getStorage(app);
 
 let currentUser = null;
 let classId = null;
@@ -56,13 +63,17 @@ const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modalTitle');
 const modalBody = document.getElementById('modalBody');
 const closeModal = document.getElementsByClassName('close')[0];
-
-// Get class ID from URL parameters
-const urlParams = new URLSearchParams(window.location.search);
-classId = urlParams.get('id');
+const chatContainer = document.getElementById('chatContainer');
+const toggleChatBtn = document.getElementById('toggleChatBtn');
+const profilePicUpload = document.getElementById('profilePicUpload');
 
 // Initialize the view
 function initializeView() {
+    const urlParams = new URLSearchParams(window.location.search);
+    classId = urlParams.get('class');
+    const assignmentId = urlParams.get('id');
+    const mode = urlParams.get('mode');
+
     if (!classId) {
         showNotification('Invalid class ID. Redirecting to dashboard...', 'error');
         setTimeout(() => {
@@ -75,6 +86,10 @@ function initializeView() {
         if (user) {
             currentUser = user;
             loadClassData();
+            loadUserProfilePic();
+            if (assignmentId && mode === 'edit') {
+                loadAssignmentForEditing(assignmentId);
+            }
         } else {
             window.location.href = 'login.html';
         }
@@ -87,6 +102,8 @@ function initializeView() {
     addAssignmentBtn.addEventListener('click', addAssignment);
     postMessageBtn.addEventListener('click', postMessage);
     logoutLink.addEventListener('click', logout);
+    toggleChatBtn.addEventListener('click', toggleChat);
+    profilePicUpload.addEventListener('change', uploadProfilePic);
     closeModal.onclick = () => modal.style.display = "none";
     window.onclick = (event) => {
         if (event.target == modal) {
@@ -170,6 +187,7 @@ async function loadAssignments() {
                         <p>${assignment.description}</p>
                         <p>Due: ${new Date(assignment.dueDate).toLocaleString()}</p>
                         <button onclick="viewAssignment('${id}')">View</button>
+                        <button onclick="workOnAssignment('${id}')">Work on Assignment</button>
                         ${currentUser.uid === classData.teacher ? `
                             <button onclick="editAssignment('${id}')">Edit</button>
                             <button onclick="deleteAssignment('${id}')">Delete</button>
@@ -203,6 +221,7 @@ async function loadMembers() {
                     const memberElement = document.createElement('div');
                     memberElement.className = 'member';
                     memberElement.innerHTML = `
+                        <img src="${userData.profilePicUrl || '/default-profile-pic.jpg'}" alt="${userData.username}" class="profile-pic">
                         <p>${userData.username} (${userData.role})</p>
                         ${currentUser.uid === classData.teacher && userId !== classData.teacher ? `
                             <button onclick="removeMember('${userId}')">Remove</button>
@@ -227,15 +246,20 @@ function setupDiscussion() {
         discussionMessages.innerHTML = '';
         if (snapshot.exists()) {
             const messages = snapshot.val();
-            for (const [id, message] of Object.entries(messages)) {
+            const sortedMessages = Object.entries(messages)
+                .sort(([, a], [, b]) => new Date(b.timestamp) - new Date(a.timestamp));
+            for (const [id, message] of sortedMessages) {
                 const messageElement = document.createElement('div');
                 messageElement.className = 'message';
                 messageElement.innerHTML = `
-                    <strong>${message.username}</strong>
-                    <p>${message.content}</p>
-                    <small>${new Date(message.timestamp).toLocaleString()}</small>
+                    <img src="${message.profilePicUrl || '/default-profile-pic.jpg'}" alt="${message.username}" class="profile-pic">
+                    <div class="message-content">
+                        <strong>${message.username}</strong>
+                        <p>${message.content}</p>
+                        <small>${new Date(message.timestamp).toLocaleString()}</small>
+                    </div>
                 `;
-                discussionMessages.appendChild(messageElement);
+                discussionMessages.insertBefore(messageElement, discussionMessages.firstChild);
             }
         } else {
             discussionMessages.innerHTML = '<p>No messages yet.</p>';
@@ -254,7 +278,8 @@ async function postMessage() {
                 content: content,
                 username: currentUser.displayName,
                 userId: currentUser.uid,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                profilePicUrl: currentUser.photoURL || null
             });
             newMessage.value = '';
         } catch (error) {
@@ -349,6 +374,12 @@ async function addAssignment() {
 function viewAssignment(assignmentId) {
     // Implement view assignment functionality
     console.log('View assignment:', assignmentId);
+    // You can open a modal or navigate to a new page to show assignment details
+}
+
+// Work on assignment
+function workOnAssignment(assignmentId) {
+    window.location.href = `projects/assignment?id=${assignmentId}&class=${classId}&mode=edit`;
 }
 
 // Edit assignment
@@ -426,6 +457,100 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+// Toggle chat
+function toggleChat() {
+    chatContainer.classList.toggle('minimized');
+    if (chatContainer.classList.contains('minimized')) {
+        toggleChatBtn.textContent = 'Maximize Chat';
+    } else {
+        toggleChatBtn.textContent = 'Minimize Chat';
+    }
+}
+
+// Upload profile picture
+async function uploadProfilePic(event) {
+    const file = event.target.files[0];
+    if (file) {
+        try {
+            const storageReference = storageRef(storage, `profile_pics/${currentUser.uid}`);
+            await uploadBytes(storageReference, file);
+            const downloadURL = await getDownloadURL(storageReference);
+            await update(ref(database, `users/${currentUser.uid}`), {
+                profilePicUrl: downloadURL
+            });
+            showNotification('Profile picture updated successfully!', 'success');
+            loadUserProfilePic();
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            showNotification('Failed to upload profile picture. Please try again.', 'error');
+        }
+    }
+}
+
+// Load user profile picture
+async function loadUserProfilePic() {
+    try {
+        const userRef = ref(database, `users/${currentUser.uid}`);
+        const userSnapshot = await get(userRef);
+        if (userSnapshot.exists()) {
+            const userData = userSnapshot.val();
+            if (userData.profilePicUrl) {
+                document.getElementById('userProfilePic').src = userData.profilePicUrl;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading user profile picture:', error);
+    }
+}
+
+// Load assignment for editing
+async function loadAssignmentForEditing(assignmentId) {
+    try {
+        const assignmentRef = ref(database, `classes/${classId}/assignments/${assignmentId}`);
+        const assignmentSnapshot = await get(assignmentRef);
+        if (assignmentSnapshot.exists()) {
+            const assignment = assignmentSnapshot.val();
+            // Populate form fields or update UI with assignment details
+            document.getElementById('assignmentTitle').value = assignment.title;
+            document.getElementById('assignmentDescription').value = assignment.description;
+            document.getElementById('assignmentDueDate').value = assignment.dueDate;
+            // Add more fields as necessary
+        } else {
+            showNotification('Assignment not found.', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading assignment for editing:', error);
+        showNotification('Failed to load assignment. Please try again.', 'error');
+    }
+}
+
+// Save assignment changes
+async function saveAssignmentChanges(assignmentId) {
+    try {
+        const title = document.getElementById('assignmentTitle').value;
+        const description = document.getElementById('assignmentDescription').value;
+        const dueDate = document.getElementById('assignmentDueDate').value;
+        // Get more fields as necessary
+
+        if (title && description && dueDate) {
+            const assignmentRef = ref(database, `classes/${classId}/assignments/${assignmentId}`);
+            await update(assignmentRef, {
+                title,
+                description,
+                dueDate,
+                updatedAt: new Date().toISOString()
+            });
+            showNotification('Assignment updated successfully!', 'success');
+            // Redirect back to class view or update UI as needed
+        } else {
+            showNotification('Please fill in all required fields.', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving assignment changes:', error);
+        showNotification('Failed to save changes. Please try again.', 'error');
+    }
+}
+
 // Initialize the view
 initializeView();
 
@@ -434,3 +559,5 @@ window.viewAssignment = viewAssignment;
 window.editAssignment = editAssignment;
 window.deleteAssignment = deleteAssignment;
 window.removeMember = removeMember;
+window.workOnAssignment = workOnAssignment;
+window.saveAssignmentChanges = saveAssignmentChanges;
