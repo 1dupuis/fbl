@@ -48,11 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // UI helper functions
     function showLoading() {
-        document.getElementById('loading').style.display = 'flex';
+        const loading = document.getElementById('loading');
+        if (loading) loading.style.display = 'flex';
     }
 
     function hideLoading() {
-        document.getElementById('loading').style.display = 'none';
+        const loading = document.getElementById('loading');
+        if (loading) loading.style.display = 'none';
     }
 
     function showToast(message, type = 'info') {
@@ -81,30 +83,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listeners
-    addNoteBtn.addEventListener('click', addNote);
-    searchInput.addEventListener('input', debounce(searchNotes, 300));
-    searchButton.addEventListener('click', searchNotes);
-    toggleThemeBtn.addEventListener('click', toggleTheme);
-    logoutBtn.addEventListener('click', logout);
-    boardSelect.addEventListener('change', changeBoard);
-    zoomInBtn.addEventListener('click', () => {
+    if (addNoteBtn) addNoteBtn.addEventListener('click', addNote);
+    if (searchInput) searchInput.addEventListener('input', debounce(searchNotes, 300));
+    if (searchButton) searchButton.addEventListener('click', searchNotes);
+    if (toggleThemeBtn) toggleThemeBtn.addEventListener('click', toggleTheme);
+    if (logoutBtn) logoutBtn.addEventListener('click', logout);
+    if (boardSelect) boardSelect.addEventListener('change', changeBoard);
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => {
         if (panzoomInstance) panzoomInstance.zoomIn();
     });
-    zoomOutBtn.addEventListener('click', () => {
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => {
         if (panzoomInstance) panzoomInstance.zoomOut();
     });
-    resetZoomBtn.addEventListener('click', resetView);
-    menuToggle.addEventListener('click', toggleSidebar);
+    if (resetZoomBtn) resetZoomBtn.addEventListener('click', resetView);
+    if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
 
     // User interface functions
     function showLoggedInUI(displayName) {
-        userInfo.style.display = 'flex';
-        userName.textContent = displayName;
+        if (userInfo) userInfo.style.display = 'flex';
+        if (userName) userName.textContent = displayName;
     }
 
     function initializePanzoom() {
         if (typeof panzoom === 'undefined') {
             console.error('Panzoom library is not loaded. Make sure to include the script in your HTML.');
+            return;
+        }
+
+        if (!corkboard) {
+            console.error('Corkboard element not found');
             return;
         }
 
@@ -129,14 +136,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleSidebar() {
-        sidebar.classList.toggle('sidebar-open');
+        if (sidebar) sidebar.classList.toggle('sidebar-open');
     }
 
     // Note management functions
     function addNote() {
-        const title = noteTitle.value.trim();
-        const content = noteContent.value.trim();
-        const color = noteColor.value;
+        const title = noteTitle ? noteTitle.value.trim() : '';
+        const content = noteContent ? noteContent.value.trim() : '';
+        const color = noteColor ? noteColor.value : '#ffffff';
 
         if (title && content && currentUser) {
             const notesRef = ref(database, `boards/${currentBoard}/notes`);
@@ -153,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             set(newNoteRef, newNote)
                 .then(() => {
-                    noteTitle.value = '';
-                    noteContent.value = '';
+                    if (noteTitle) noteTitle.value = '';
+                    if (noteContent) noteContent.value = '';
                     showToast('Note added successfully', 'success');
                     createNoteElement(newNoteRef.key, newNote);
                 })
@@ -167,28 +174,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createNoteElement(id, note) {
+        if (!note || typeof note !== 'object') {
+            console.error('Invalid note data:', note);
+            return;
+        }
+
         const noteElement = document.createElement('div');
         noteElement.classList.add('note');
         noteElement.id = id;
-        noteElement.style.backgroundColor = note.color;
-        noteElement.style.left = `${note.position.x}px`;
-        noteElement.style.top = `${note.position.y}px`;
+        noteElement.style.backgroundColor = note.color || '#ffffff';
+        noteElement.style.left = `${note.position?.x || 0}px`;
+        noteElement.style.top = `${note.position?.y || 0}px`;
         
         noteElement.innerHTML = `
-            <h3>${escapeHTML(note.title)}</h3>
-            <p>${escapeHTML(note.content)}</p>
-            <span class="author">By ${escapeHTML(note.author)}</span>
+            <h3>${escapeHTML(note.title || '')}</h3>
+            <p>${escapeHTML(note.content || '')}</p>
+            <span class="author">By ${escapeHTML(note.author || 'Unknown')}</span>
             <div class="actions">
                 <button class="edit" title="Edit"><span class="material-icons">edit</span></button>
                 <button class="delete" title="Delete"><span class="material-icons">delete</span></button>
             </div>
         `;
 
-        noteElement.querySelector('.edit').addEventListener('click', () => editNote(id, note));
-        noteElement.querySelector('.delete').addEventListener('click', () => deleteNote(id));
+        const editBtn = noteElement.querySelector('.edit');
+        const deleteBtn = noteElement.querySelector('.delete');
+        if (editBtn) editBtn.addEventListener('click', () => editNote(id, note));
+        if (deleteBtn) deleteBtn.addEventListener('click', () => deleteNote(id));
 
         makeNoteDraggable(noteElement, id);
-        corkboard.appendChild(noteElement);
+        if (corkboard) corkboard.appendChild(noteElement);
         notes[id] = note;
     }
 
@@ -199,7 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
             snapshot.forEach((childSnapshot) => {
                 const id = childSnapshot.key;
                 const note = childSnapshot.val();
-                createNoteElement(id, note);
+                if (id && note) {
+                    createNoteElement(id, note);
+                }
             });
         }, (error) => {
             showToast('Error loading notes: ' + error.message, 'error');
@@ -207,8 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearNotes() {
-        while (corkboard.firstChild) {
-            corkboard.removeChild(corkboard.firstChild);
+        if (corkboard) {
+            while (corkboard.firstChild) {
+                corkboard.removeChild(corkboard.firstChild);
+            }
         }
         notes = {};
     }
@@ -287,29 +305,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function searchNotes() {
-        const searchTerm = searchInput.value.toLowerCase();
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
         Object.entries(notes).forEach(([id, note]) => {
             const noteElement = document.getElementById(id);
             if (noteElement) {
-                const isVisible = note.title.toLowerCase().includes(searchTerm) ||
-                                  note.content.toLowerCase().includes(searchTerm) ||
-                                  note.author.toLowerCase().includes(searchTerm);
+                const isVisible = (note.title || '').toLowerCase().includes(searchTerm) ||
+                                  (note.content || '').toLowerCase().includes(searchTerm) ||
+                                  (note.author || '').toLowerCase().includes(searchTerm);
                 noteElement.style.display = isVisible ? 'block' : 'none';
             }
         });
     }
 
     function changeBoard() {
-        currentBoard = boardSelect.value;
-        loadNotes();
-        resetView();
+        if (boardSelect) {
+            currentBoard = boardSelect.value;
+            loadNotes();
+            resetView();
+        }
     }
 
     // Theme management
     function toggleTheme() {
         document.body.classList.toggle('dark-theme');
         const isDarkTheme = document.body.classList.contains('dark-theme');
-        toggleThemeBtn.innerHTML = isDarkTheme ? '<span class="material-icons">light_mode</span>' : '<span class="material-icons">dark_mode</span>';
+        if (toggleThemeBtn) {
+            toggleThemeBtn.innerHTML = isDarkTheme ? '<span class="material-icons">light_mode</span>' : '<span class="material-icons">dark_mode</span>';
+        }
         localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
     }
 
@@ -317,7 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-theme');
-            toggleThemeBtn.innerHTML = '<span class="material-icons">light_mode</span>';
+            if (toggleThemeBtn) {
+                toggleThemeBtn.innerHTML = '<span class="material-icons">light_mode</span>';
+            }
         }
     }
 
@@ -344,6 +368,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function escapeHTML(str) {
+        if (typeof str !== 'string') {
+            return '';
+        }
         return str.replace(/[&<>'"]/g, 
             tag => ({
                 '&': '&amp;',
