@@ -87,8 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleThemeBtn.addEventListener('click', toggleTheme);
     logoutBtn.addEventListener('click', logout);
     boardSelect.addEventListener('change', changeBoard);
-    zoomInBtn.addEventListener('click', () => panzoomInstance.zoomIn());
-    zoomOutBtn.addEventListener('click', () => panzoomInstance.zoomOut());
+    zoomInBtn.addEventListener('click', () => {
+        if (panzoomInstance) panzoomInstance.zoomIn();
+    });
+    zoomOutBtn.addEventListener('click', () => {
+        if (panzoomInstance) panzoomInstance.zoomOut();
+    });
     resetZoomBtn.addEventListener('click', resetView);
     menuToggle.addEventListener('click', toggleSidebar);
 
@@ -99,6 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializePanzoom() {
+        if (typeof panzoom === 'undefined') {
+            console.error('Panzoom library is not loaded. Make sure to include the script in your HTML.');
+            return;
+        }
+
         panzoomInstance = panzoom(corkboard, {
             maxZoom: 5,
             minZoom: 0.1,
@@ -113,8 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetView() {
-        panzoomInstance.moveTo(0, 0);
-        panzoomInstance.zoomAbs(0, 0, 1);
+        if (panzoomInstance) {
+            panzoomInstance.moveTo(0, 0);
+            panzoomInstance.zoomAbs(0, 0, 1);
+        }
     }
 
     function toggleSidebar() {
@@ -203,6 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function makeNoteDraggable(noteElement, id) {
+        if (typeof interact === 'undefined') {
+            console.error('Interact.js library is not loaded. Make sure to include the script in your HTML.');
+            return;
+        }
+
         interact(noteElement).draggable({
             inertia: true,
             modifiers: [
@@ -233,7 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateNotePosition(id, x, y) {
-        update(ref(database, `boards/${currentBoard}/notes/${id}/position`), { x, y });
+        update(ref(database, `boards/${currentBoard}/notes/${id}/position`), { x, y })
+            .catch(error => {
+                showToast('Error updating note position: ' + error.message, 'error');
+            });
     }
 
     function editNote(id, note) {
@@ -245,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 content: newContent.trim()
             }).then(() => {
                 showToast('Note updated successfully', 'success');
+                loadNotes(); // Reload notes to reflect changes
             }).catch(error => {
                 showToast('Error updating note: ' + error.message, 'error');
             });
@@ -256,6 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
             remove(ref(database, `boards/${currentBoard}/notes/${id}`))
                 .then(() => {
                     showToast('Note deleted successfully', 'success');
+                    const noteElement = document.getElementById(id);
+                    if (noteElement) noteElement.remove();
+                    delete notes[id];
                 })
                 .catch(error => {
                     showToast('Error deleting note: ' + error.message, 'error');
@@ -267,10 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchTerm = searchInput.value.toLowerCase();
         Object.entries(notes).forEach(([id, note]) => {
             const noteElement = document.getElementById(id);
-            const isVisible = note.title.toLowerCase().includes(searchTerm) ||
-                              note.content.toLowerCase().includes(searchTerm) ||
-                              note.author.toLowerCase().includes(searchTerm);
-            noteElement.style.display = isVisible ? 'block' : 'none';
+            if (noteElement) {
+                const isVisible = note.title.toLowerCase().includes(searchTerm) ||
+                                  note.content.toLowerCase().includes(searchTerm) ||
+                                  note.author.toLowerCase().includes(searchTerm);
+                noteElement.style.display = isVisible ? 'block' : 'none';
+            }
         });
     }
 
