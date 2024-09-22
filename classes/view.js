@@ -91,7 +91,7 @@ function initializeView() {
                 loadAssignmentForEditing(assignmentId);
             }
         } else {
-            window.location.href = 'login.html';
+            window.location.href = 'account/signup';
         }
     });
 
@@ -439,7 +439,7 @@ async function removeMember(userId) {
 // Logout
 function logout() {
     signOut(auth).then(() => {
-        window.location.href = 'login.html';
+        window.location.href = 'account/signup';
     }).catch((error) => {
         console.error('Error signing out:', error);
         showNotification('Failed to sign out. Please try again.', 'error');
