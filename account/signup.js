@@ -117,7 +117,7 @@ async function redirectToClasses(userId) {
         const userRef = ref(database, `users/${userId}`);
         const snapshot = await get(userRef);
         const userData = snapshot.val();
-        window.location.href = 'https://fbl.dupuis.lol/classes/dashboard';
+        window.location.href = 'https://fbl.dupuis.lol/landing/explore';
         //if (userData && userData.classes && userData.classes.length > 0) {
         //    window.location.href = `https://fbl.dupuis.lol/classes/find?id=${userData.classes[0]}`;
         //} else {
