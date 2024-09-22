@@ -21,26 +21,27 @@ const database = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', () => {
     const corkboard = document.getElementById('corkboard');
+    const corkboardContainer = document.getElementById('corkboard-container');
     const addNoteBtn = document.getElementById('add-note');
     const noteTitle = document.getElementById('note-title');
     const noteContent = document.getElementById('note-content');
-    const filterSubject = document.getElementById('filter-subject');
     const searchInput = document.getElementById('search');
-    const noteSubject = document.getElementById('note-subject');
     const noteColor = document.getElementById('note-color');
     const userInfo = document.getElementById('user-info');
     const userName = document.getElementById('user-name');
-    const toggleViewBtn = document.getElementById('toggle-view');
     const toggleThemeBtn = document.getElementById('toggle-theme');
     const logoutBtn = document.getElementById('logout-btn');
     const boardSelect = document.getElementById('board-select');
-    const addBoardBtn = document.getElementById('add-board-btn');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const resetZoomBtn = document.getElementById('reset-zoom');
 
     let currentUser = null;
-    let isListView = false;
     let currentBoard = 'general';
-    let boards = [];
+    let panzoomInstance = null;
+    let notes = {};
 
+    // UI helper functions
     function showLoading() {
         document.getElementById('loading').style.display = 'flex';
     }
@@ -59,14 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
+    // Authentication and initialization
     showLoading();
 
     onAuthStateChanged(auth, (user) => {
         hideLoading();
         if (user) {
             currentUser = user;
-            showLoggedInUI(user.email);
-            loadBoards();
+            showLoggedInUI(user.displayName || user.email);
+            initializePanzoom();
+            loadNotes();
         } else {
             window.location.href = 'https://fbl.dupuis.lol/account/signup';
         }
@@ -74,43 +77,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners
     addNoteBtn.addEventListener('click', addNote);
-    filterSubject.addEventListener('change', filterNotes);
-    searchInput.addEventListener('input', searchNotes);
-    toggleViewBtn.addEventListener('click', toggleView);
+    searchInput.addEventListener('input', debounce(searchNotes, 300));
     toggleThemeBtn.addEventListener('click', toggleTheme);
     logoutBtn.addEventListener('click', logout);
     boardSelect.addEventListener('change', changeBoard);
-    addBoardBtn.addEventListener('click', addBoard);
+    zoomInBtn.addEventListener('click', () => panzoomInstance.zoomIn());
+    zoomOutBtn.addEventListener('click', () => panzoomInstance.zoomOut());
+    resetZoomBtn.addEventListener('click', resetView);
 
-    function showLoggedInUI(email) {
+    // User interface functions
+    function showLoggedInUI(displayName) {
         userInfo.style.display = 'flex';
-        userName.textContent = email;
+        userName.textContent = displayName;
     }
 
+    function initializePanzoom() {
+        panzoomInstance = panzoom(corkboard, {
+            maxZoom: 5,
+            minZoom: 0.1,
+            bounds: true,
+            boundsPadding: 0.1
+        });
+
+        panzoomInstance.on('transform', (e) => {
+            const currentScale = panzoomInstance.getTransform().scale;
+            corkboard.style.setProperty('--scale', 1 / currentScale);
+        });
+    }
+
+    function resetView() {
+        panzoomInstance.reset();
+        panzoomInstance.moveTo(2500, 2500);
+    }
+
+    // Note management functions
     function addNote() {
         const title = noteTitle.value.trim();
         const content = noteContent.value.trim();
-        const subject = noteSubject.value;
         const color = noteColor.value;
 
         if (title && content && currentUser) {
             const notesRef = ref(database, `boards/${currentBoard}/notes`);
             const newNoteRef = push(notesRef);
-            set(newNoteRef, {
+            const newNote = {
                 userId: currentUser.uid,
+                author: currentUser.displayName || currentUser.email,
                 title: title,
                 content: content,
-                subject: subject,
                 color: color,
                 timestamp: Date.now(),
-                position: { x: Math.random() * 500, y: Math.random() * 300 }
-            }).then(() => {
-                noteTitle.value = '';
-                noteContent.value = '';
-                showToast('Note added successfully', 'success');
-            }).catch(error => {
-                showToast('Error adding note: ' + error.message, 'error');
-            });
+                position: { x: 2500, y: 2500 }
+            };
+
+            set(newNoteRef, newNote)
+                .then(() => {
+                    noteTitle.value = '';
+                    noteContent.value = '';
+                    showToast('Note added successfully', 'success');
+                    createNoteElement(newNoteRef.key, newNote);
+                    resetView();
+                })
+                .catch(error => {
+                    showToast('Error adding note: ' + error.message, 'error');
+                });
         } else {
             showToast('Please fill in both title and content', 'warning');
         }
@@ -121,22 +150,25 @@ document.addEventListener('DOMContentLoaded', () => {
         noteElement.classList.add('note');
         noteElement.id = id;
         noteElement.style.backgroundColor = note.color;
-        noteElement.style.transform = `translate(${note.position.x}px, ${note.position.y}px)`;
+        noteElement.style.left = `${note.position.x}px`;
+        noteElement.style.top = `${note.position.y}px`;
+        
         noteElement.innerHTML = `
-            <h3>${note.title}</h3>
-            <p>${note.content}</p>
-            <span class="subject">${note.subject}</span>
+            <h3>${escapeHTML(note.title)}</h3>
+            <p>${escapeHTML(note.content)}</p>
+            <span class="author">By ${escapeHTML(note.author)}</span>
             <div class="actions">
-                <button class="edit"><i class="fas fa-edit"></i></button>
-                <button class="delete"><i class="fas fa-trash"></i></button>
-                <button class="share"><i class="fas fa-share"></i></button>
+                <button class="edit" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="delete" title="Delete"><i class="fas fa-trash"></i></button>
             </div>
         `;
+
         noteElement.querySelector('.edit').addEventListener('click', () => editNote(id, note));
         noteElement.querySelector('.delete').addEventListener('click', () => deleteNote(id));
-        noteElement.querySelector('.share').addEventListener('click', () => shareNote(id, note));
+
         makeNoteDraggable(noteElement, id);
-        return noteElement;
+        corkboard.appendChild(noteElement);
+        notes[id] = note;
     }
 
     function loadNotes() {
@@ -146,12 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
             snapshot.forEach((childSnapshot) => {
                 const id = childSnapshot.key;
                 const note = childSnapshot.val();
-                if (note.userId === currentUser.uid) {
-                    const noteElement = createNoteElement(id, note);
-                    corkboard.appendChild(noteElement);
-                }
+                createNoteElement(id, note);
             });
-            applyCurrentView();
         }, (error) => {
             showToast('Error loading notes: ' + error.message, 'error');
         });
@@ -161,37 +189,37 @@ document.addEventListener('DOMContentLoaded', () => {
         while (corkboard.firstChild) {
             corkboard.removeChild(corkboard.firstChild);
         }
+        notes = {};
     }
 
     function makeNoteDraggable(noteElement, id) {
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        noteElement.onmousedown = dragMouseDown;
+        interact(noteElement).draggable({
+            inertia: true,
+            modifiers: [
+                interact.modifiers.restrictRect({
+                    restriction: 'parent',
+                    endOnly: true
+                })
+            ],
+            autoScroll: true,
+            listeners: {
+                move(event) {
+                    const target = event.target;
+                    const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+                    const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
 
-        function dragMouseDown(e) {
-            e = e || window.event;
-            e.preventDefault();
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
-        }
-
-        function elementDrag(e) {
-            e = e || window.event;
-            e.preventDefault();
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            noteElement.style.top = (noteElement.offsetTop - pos2) + "px";
-            noteElement.style.left = (noteElement.offsetLeft - pos1) + "px";
-        }
-
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
-            updateNotePosition(id, noteElement.offsetLeft, noteElement.offsetTop);
-        }
+                    target.style.transform = `translate(${x}px, ${y}px)`;
+                    target.setAttribute('data-x', x);
+                    target.setAttribute('data-y', y);
+                },
+                end(event) {
+                    const target = event.target;
+                    const x = parseFloat(target.getAttribute('data-x')) || 0;
+                    const y = parseFloat(target.getAttribute('data-y')) || 0;
+                    updateNotePosition(id, x, y);
+                }
+            }
+        });
     }
 
     function updateNotePosition(id, x, y) {
@@ -225,56 +253,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function shareNote(id, note) {
-        const shareLink = `${window.location.origin}/share?board=${currentBoard}&note=${id}`;
-        navigator.clipboard.writeText(shareLink).then(() => {
-            showToast('Share link copied to clipboard!', 'success');
-        }).catch(err => {
-            showToast('Error copying share link: ' + err, 'error');
+    function searchNotes() {
+        const searchTerm = searchInput.value.toLowerCase();
+        Object.entries(notes).forEach(([id, note]) => {
+            const noteElement = document.getElementById(id);
+            const isVisible = note.title.toLowerCase().includes(searchTerm) ||
+                              note.content.toLowerCase().includes(searchTerm) ||
+                              note.author.toLowerCase().includes(searchTerm);
+            noteElement.style.display = isVisible ? 'block' : 'none';
         });
     }
 
-    function filterNotes() {
-        const selectedSubject = filterSubject.value;
-        const notes = corkboard.getElementsByClassName('note');
-        for (const note of notes) {
-            const noteSubject = note.querySelector('.subject').textContent;
-            note.style.display = selectedSubject === '' || noteSubject === selectedSubject ? 'block' : 'none';
-        }
+    function changeBoard() {
+        currentBoard = boardSelect.value;
+        loadNotes();
+        resetView();
     }
 
-    function searchNotes() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const notes = corkboard.getElementsByClassName('note');
-        for (const note of notes) {
-            const title = note.querySelector('h3').textContent.toLowerCase();
-            const content = note.querySelector('p').textContent.toLowerCase();
-            note.style.display = title.includes(searchTerm) || content.includes(searchTerm) ? 'block' : 'none';
-        }
-    }
-
-    function toggleView() {
-        isListView = !isListView;
-        applyCurrentView();
-        toggleViewBtn.innerHTML = isListView ? '<i class="fas fa-th-large"></i>' : '<i class="fas fa-list"></i>';
-    }
-
-    function applyCurrentView() {
-        corkboard.classList.toggle('list-view', isListView);
-        const notes = corkboard.getElementsByClassName('note');
-        for (const note of notes) {
-            if (isListView) {
-                note.style.transform = 'none';
-                note.style.position = 'static';
-            } else {
-                const x = parseFloat(note.getAttribute('data-x')) || 0;
-                const y = parseFloat(note.getAttribute('data-y')) || 0;
-                note.style.transform = `translate(${x}px, ${y}px)`;
-                note.style.position = 'absolute';
-            }
-        }
-    }
-
+    // Theme management
     function toggleTheme() {
         document.body.classList.toggle('dark-theme');
         const isDarkTheme = document.body.classList.contains('dark-theme');
@@ -290,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Authentication
     function logout() {
         signOut(auth).then(() => {
             window.location.href = 'https://fbl.dupuis.lol/account/signup';
@@ -298,45 +295,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function loadBoards() {
-        const boardsRef = ref(database, `users/${currentUser.uid}/boards`);
-        onValue(boardsRef, (snapshot) => {
-            boards = snapshot.val() || { general: 'General Board' };
-            updateBoardSelect();
-            loadNotes();
-        }, (error) => {
-            showToast('Error loading boards: ' + error.message, 'error');
-        });
+    // Utility functions
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 
-    function updateBoardSelect() {
-        boardSelect.innerHTML = '';
-        Object.entries(boards).forEach(([id, name]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = name;
-            boardSelect.appendChild(option);
-        });
-    }
-
-    function changeBoard() {
-        currentBoard = boardSelect.value;
-        loadNotes();
-    }
-
-    function addBoard() {
-        const boardName = prompt('Enter new board name:');
-        if (boardName && boardName.trim()) {
-            const newBoardRef = push(ref(database, `users/${currentUser.uid}/boards`));
-            set(newBoardRef, boardName.trim())
-                .then(() => {
-                    showToast('New board added successfully', 'success');
-                    loadBoards();
-                })
-                .catch(error => {
-                    showToast('Error adding new board: ' + error.message, 'error');
-                });
-        }
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
     }
 
     // Initialize
