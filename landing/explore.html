@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore - Your App Name</title>
+    <link rel="stylesheet" href="explore.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav>
+            <button id="apps-menu" class="icon-button" aria-label="Google apps"><i class="fas fa-th"></i></button>
+            <button id="theme-toggle" class="icon-button" aria-label="Toggle theme"><i class="fas fa-adjust"></i></button>
+            <button class="notification-bell icon-button" aria-label="Notifications"><i class="fas fa-bell"></i></button>
+        </nav>
+    </header>
+
+    <main>
+        <div class="logo-container">
+            <img src="/api/placeholder/272/92" alt="DPL" class="logo">
+        </div>
+        <div class="quick-access">
+            <a href="/classes/dashboard" class="quick-access-item">
+                <i class="fas fa-chalkboard quick-access-icon"></i>
+                <span>Classes</span>
+            </a>
+            <button class="quick-access-item add-shortcut">
+                <i class="fas fa-plus quick-access-icon"></i>
+                <span>More Pages Soon...</span>
+            </button>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-section">
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy</a>
+                <a href="#" class="footer-link">Terms</a>
+                <a href="#" class="footer-link">Settings</a>
+            </div>
+        </div>
+    </footer>
+
+    <div id="apps-dropdown" class="dropdown">
+        <!-- App icons will be dynamically inserted here -->
+    </div>
+
+    <div class="notification-dropdown dropdown">
+        <h3>Notifications</h3>
+        <ul>
+            <li>You have a new message</li>
+            <li>Class schedule updated</li>
+            <li>New assignment due tomorrow</li>
+        </ul>
+    </div>
+
+    <script src="explore.js"></script>
+</body>
+</html>
