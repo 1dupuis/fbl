@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FBL - Class View</title>
+    <link rel="stylesheet" href="view.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header>
+        <h1 id="className">Class Name</h1>
+        <nav>
+            <a href="dashboard.html"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            <a href="#" id="logoutLink"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </nav>
+    </header>
+    <main>
+        <section id="classInfo">
+            <h2>Class Information</h2>
+            <p><strong>Subject:</strong> <span id="classSubject"></span></p>
+            <p><strong>Description:</strong> <span id="classDescription"></span></p>
+            <p><strong>Teacher:</strong> <span id="classTeacher"></span></p>
+            <p><strong>Class Code:</strong> <span id="classCode"></span></p>
+        </section>
+        <section id="classActions">
+            <button id="editClassBtn" class="hidden"><i class="fas fa-edit"></i> Edit Class</button>
+            <button id="deleteClassBtn" class="hidden"><i class="fas fa-trash"></i> Delete Class</button>
+            <button id="leaveClassBtn" class="hidden"><i class="fas fa-door-open"></i> Leave Class</button>
+        </section>
+        <section id="assignments">
+            <h2>Assignments</h2>
+            <button id="addAssignmentBtn" class="hidden"><i class="fas fa-plus"></i> Add Assignment</button>
+            <div id="assignmentsList"></div>
+        </section>
+        <section id="members">
+            <h2>Class Members</h2>
+            <div id="membersList"></div>
+        </section>
+        <section id="discussion">
+            <h2>Class Discussion</h2>
+            <div id="discussionMessages"></div>
+            <textarea id="newMessage" placeholder="Type your message"></textarea>
+            <button id="postMessageBtn">Post Message</button>
+        </section>
+    </main>
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle"></h2>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+    <script type="module" src="view.js"></script>
+</body>
+</html>
