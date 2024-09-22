@@ -21,24 +21,26 @@ const database = getDatabase(app);
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM elements
-    const corkboard = document.getElementById('corkboard');
-    const corkboardContainer = document.getElementById('corkboard-container');
-    const addNoteBtn = document.getElementById('add-note');
-    const noteTitle = document.getElementById('note-title');
-    const noteContent = document.getElementById('note-content');
-    const searchInput = document.getElementById('search');
-    const searchButton = document.getElementById('search-button');
-    const noteColor = document.getElementById('note-color');
-    const userInfo = document.getElementById('user-info');
-    const userName = document.getElementById('user-name');
-    const toggleThemeBtn = document.getElementById('toggle-theme');
-    const logoutBtn = document.getElementById('logout-btn');
-    const boardSelect = document.getElementById('board-select');
-    const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
-    const resetZoomBtn = document.getElementById('reset-zoom');
-    const menuToggle = document.getElementById('menu-toggle');
-    const sidebar = document.getElementById('sidebar');
+    const elements = {
+        corkboard: document.getElementById('corkboard'),
+        corkboardContainer: document.getElementById('corkboard-container'),
+        addNoteBtn: document.getElementById('add-note'),
+        noteTitle: document.getElementById('note-title'),
+        noteContent: document.getElementById('note-content'),
+        searchInput: document.getElementById('search'),
+        searchButton: document.getElementById('search-button'),
+        noteColor: document.getElementById('note-color'),
+        userInfo: document.getElementById('user-info'),
+        userName: document.getElementById('user-name'),
+        toggleThemeBtn: document.getElementById('toggle-theme'),
+        logoutBtn: document.getElementById('logout-btn'),
+        boardSelect: document.getElementById('board-select'),
+        zoomInBtn: document.getElementById('zoom-in'),
+        zoomOutBtn: document.getElementById('zoom-out'),
+        resetZoomBtn: document.getElementById('reset-zoom'),
+        menuToggle: document.getElementById('menu-toggle'),
+        sidebar: document.getElementById('sidebar')
+    };
 
     // State variables
     let currentUser = null;
@@ -47,31 +49,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let notes = {};
 
     // UI helper functions
-    function showLoading() {
-        const loading = document.getElementById('loading');
-        if (loading) loading.style.display = 'flex';
-    }
-
-    function hideLoading() {
-        const loading = document.getElementById('loading');
-        if (loading) loading.style.display = 'none';
-    }
-
-    function showToast(message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
+    const ui = {
+        showLoading: () => {
+            const loading = document.getElementById('loading');
+            if (loading) loading.style.display = 'flex';
+        },
+        hideLoading: () => {
+            const loading = document.getElementById('loading');
+            if (loading) loading.style.display = 'none';
+        },
+        showToast: (message, type = 'info') => {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+    };
 
     // Authentication and initialization
-    showLoading();
+    ui.showLoading();
 
     onAuthStateChanged(auth, (user) => {
-        hideLoading();
+        ui.hideLoading();
         if (user) {
             currentUser = user;
             showLoggedInUI(user.displayName || user.email);
@@ -83,25 +85,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listeners
-    if (addNoteBtn) addNoteBtn.addEventListener('click', addNote);
-    if (searchInput) searchInput.addEventListener('input', debounce(searchNotes, 300));
-    if (searchButton) searchButton.addEventListener('click', searchNotes);
-    if (toggleThemeBtn) toggleThemeBtn.addEventListener('click', toggleTheme);
-    if (logoutBtn) logoutBtn.addEventListener('click', logout);
-    if (boardSelect) boardSelect.addEventListener('change', changeBoard);
-    if (zoomInBtn) zoomInBtn.addEventListener('click', () => {
+    if (elements.addNoteBtn) elements.addNoteBtn.addEventListener('click', addNote);
+    if (elements.searchInput) elements.searchInput.addEventListener('input', debounce(searchNotes, 300));
+    if (elements.searchButton) elements.searchButton.addEventListener('click', searchNotes);
+    if (elements.toggleThemeBtn) elements.toggleThemeBtn.addEventListener('click', toggleTheme);
+    if (elements.logoutBtn) elements.logoutBtn.addEventListener('click', logout);
+    if (elements.boardSelect) elements.boardSelect.addEventListener('change', changeBoard);
+    if (elements.zoomInBtn) elements.zoomInBtn.addEventListener('click', () => {
         if (panzoomInstance) panzoomInstance.zoomIn();
     });
-    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => {
+    if (elements.zoomOutBtn) elements.zoomOutBtn.addEventListener('click', () => {
         if (panzoomInstance) panzoomInstance.zoomOut();
     });
-    if (resetZoomBtn) resetZoomBtn.addEventListener('click', resetView);
-    if (menuToggle) menuToggle.addEventListener('click', toggleSidebar);
+    if (elements.resetZoomBtn) elements.resetZoomBtn.addEventListener('click', resetView);
+    if (elements.menuToggle) elements.menuToggle.addEventListener('click', toggleSidebar);
 
     // User interface functions
     function showLoggedInUI(displayName) {
-        if (userInfo) userInfo.style.display = 'flex';
-        if (userName) userName.textContent = displayName;
+        if (elements.userInfo) elements.userInfo.style.display = 'flex';
+        if (elements.userName) elements.userName.textContent = displayName;
     }
 
     function initializePanzoom() {
@@ -110,12 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!corkboard) {
+        if (!elements.corkboard) {
             console.error('Corkboard element not found');
             return;
         }
 
-        panzoomInstance = panzoom(corkboard, {
+        panzoomInstance = panzoom(elements.corkboard, {
             maxZoom: 5,
             minZoom: 0.1,
             bounds: true,
@@ -124,7 +126,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         panzoomInstance.on('transform', (e) => {
             const currentScale = e.getTransform().scale;
-            corkboard.style.setProperty('--scale', 1 / currentScale);
+            elements.corkboard.style.setProperty('--scale', 1 / currentScale);
+        });
+
+        // Disable panzoom when interacting with notes
+        elements.corkboard.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.note')) {
+                panzoomInstance.pause();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            panzoomInstance.resume();
         });
     }
 
@@ -136,14 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleSidebar() {
-        if (sidebar) sidebar.classList.toggle('sidebar-open');
+        if (elements.sidebar) elements.sidebar.classList.toggle('sidebar-open');
     }
 
     // Note management functions
     function addNote() {
-        const title = noteTitle ? noteTitle.value.trim() : '';
-        const content = noteContent ? noteContent.value.trim() : '';
-        const color = noteColor ? noteColor.value : '#ffffff';
+        const title = elements.noteTitle ? elements.noteTitle.value.trim() : '';
+        const content = elements.noteContent ? elements.noteContent.value.trim() : '';
+        const color = elements.noteColor ? elements.noteColor.value : '#ffffff';
 
         if (title && content && currentUser) {
             const notesRef = ref(database, `boards/${currentBoard}/notes`);
@@ -160,16 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             set(newNoteRef, newNote)
                 .then(() => {
-                    if (noteTitle) noteTitle.value = '';
-                    if (noteContent) noteContent.value = '';
-                    showToast('Note added successfully', 'success');
+                    if (elements.noteTitle) elements.noteTitle.value = '';
+                    if (elements.noteContent) elements.noteContent.value = '';
+                    ui.showToast('Note added successfully', 'success');
                     createNoteElement(newNoteRef.key, newNote);
                 })
                 .catch(error => {
-                    showToast('Error adding note: ' + error.message, 'error');
+                    ui.showToast('Error adding note: ' + error.message, 'error');
                 });
         } else {
-            showToast('Please fill in both title and content', 'warning');
+            ui.showToast('Please fill in both title and content', 'warning');
         }
     }
 
@@ -202,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteBtn) deleteBtn.addEventListener('click', () => deleteNote(id));
 
         makeNoteDraggable(noteElement, id);
-        if (corkboard) corkboard.appendChild(noteElement);
+        if (elements.corkboard) elements.corkboard.appendChild(noteElement);
         notes[id] = note;
     }
 
@@ -218,14 +231,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }, (error) => {
-            showToast('Error loading notes: ' + error.message, 'error');
+            ui.showToast('Error loading notes: ' + error.message, 'error');
         });
     }
 
     function clearNotes() {
-        if (corkboard) {
-            while (corkboard.firstChild) {
-                corkboard.removeChild(corkboard.firstChild);
+        if (elements.corkboard) {
+            while (elements.corkboard.firstChild) {
+                elements.corkboard.removeChild(elements.corkboard.firstChild);
             }
         }
         notes = {};
@@ -247,6 +260,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             autoScroll: true,
             listeners: {
+                start() {
+                    // Disable panzoom when starting to drag a note
+                    if (panzoomInstance) panzoomInstance.pause();
+                },
                 move(event) {
                     const target = event.target;
                     const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
@@ -261,6 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const x = parseFloat(target.getAttribute('data-x')) || 0;
                     const y = parseFloat(target.getAttribute('data-y')) || 0;
                     updateNotePosition(id, x, y);
+
+                    // Re-enable panzoom after dragging ends
+                    if (panzoomInstance) panzoomInstance.resume();
                 }
             }
         });
@@ -269,43 +289,78 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateNotePosition(id, x, y) {
         update(ref(database, `boards/${currentBoard}/notes/${id}/position`), { x, y })
             .catch(error => {
-                showToast('Error updating note position: ' + error.message, 'error');
+                ui.showToast('Error updating note position: ' + error.message, 'error');
             });
     }
 
     function editNote(id, note) {
-        const newTitle = prompt('Edit note title:', note.title);
-        const newContent = prompt('Edit note content:', note.content);
-        if (newTitle !== null && newContent !== null) {
-            update(ref(database, `boards/${currentBoard}/notes/${id}`), {
-                title: newTitle.trim(),
-                content: newContent.trim()
-            }).then(() => {
-                showToast('Note updated successfully', 'success');
-                loadNotes(); // Reload notes to reflect changes
-            }).catch(error => {
-                showToast('Error updating note: ' + error.message, 'error');
-            });
-        }
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h2>Edit Note</h2>
+                <input type="text" id="edit-title" value="${escapeHTML(note.title)}">
+                <textarea id="edit-content">${escapeHTML(note.content)}</textarea>
+                <input type="color" id="edit-color" value="${note.color}">
+                <div class="modal-actions">
+                    <button id="save-edit">Save</button>
+                    <button id="cancel-edit">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const saveBtn = modal.querySelector('#save-edit');
+        const cancelBtn = modal.querySelector('#cancel-edit');
+        const titleInput = modal.querySelector('#edit-title');
+        const contentInput = modal.querySelector('#edit-content');
+        const colorInput = modal.querySelector('#edit-color');
+
+        saveBtn.addEventListener('click', () => {
+            const newTitle = titleInput.value.trim();
+            const newContent = contentInput.value.trim();
+            const newColor = colorInput.value;
+
+            if (newTitle && newContent) {
+                update(ref(database, `boards/${currentBoard}/notes/${id}`), {
+                    title: newTitle,
+                    content: newContent,
+                    color: newColor
+                }).then(() => {
+                    ui.showToast('Note updated successfully', 'success');
+                    loadNotes(); // Reload notes to reflect changes
+                    modal.remove();
+                }).catch(error => {
+                    ui.showToast('Error updating note: ' + error.message, 'error');
+                });
+            } else {
+                ui.showToast('Please fill in both title and content', 'warning');
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            modal.remove();
+        });
     }
 
     function deleteNote(id) {
         if (confirm('Are you sure you want to delete this note?')) {
             remove(ref(database, `boards/${currentBoard}/notes/${id}`))
                 .then(() => {
-                    showToast('Note deleted successfully', 'success');
+                    ui.showToast('Note deleted successfully', 'success');
                     const noteElement = document.getElementById(id);
                     if (noteElement) noteElement.remove();
                     delete notes[id];
                 })
                 .catch(error => {
-                    showToast('Error deleting note: ' + error.message, 'error');
+                    ui.showToast('Error deleting note: ' + error.message, 'error');
                 });
         }
     }
 
     function searchNotes() {
-        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const searchTerm = elements.searchInput ? elements.searchInput.value.toLowerCase() : '';
         Object.entries(notes).forEach(([id, note]) => {
             const noteElement = document.getElementById(id);
             if (noteElement) {
@@ -318,10 +373,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function changeBoard() {
-        if (boardSelect) {
-            currentBoard = boardSelect.value;
+        if (elements.boardSelect) {
+            currentBoard = elements.boardSelect.value;
             loadNotes();
             resetView();
+            ui.showToast(`Switched to ${currentBoard} board`, 'info');
         }
     }
 
@@ -329,18 +385,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleTheme() {
         document.body.classList.toggle('dark-theme');
         const isDarkTheme = document.body.classList.contains('dark-theme');
-        if (toggleThemeBtn) {
-            toggleThemeBtn.innerHTML = isDarkTheme ? '<span class="material-icons">light_mode</span>' : '<span class="material-icons">dark_mode</span>';
+        if (elements.toggleThemeBtn) {
+            elements.toggleThemeBtn.innerHTML = isDarkTheme ? '<span class="material-icons">light_mode</span>' : '<span class="material-icons">dark_mode</span>';
         }
         localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+        ui.showToast(`Switched to ${isDarkTheme ? 'dark' : 'light'} theme`, 'info');
     }
 
     function loadTheme() {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-theme');
-            if (toggleThemeBtn) {
-                toggleThemeBtn.innerHTML = '<span class="material-icons">light_mode</span>';
+            if (elements.toggleThemeBtn) {
+                elements.toggleThemeBtn.innerHTML = '<span class="material-icons">light_mode</span>';
             }
         }
     }
@@ -350,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         signOut(auth).then(() => {
             window.location.href = 'https://fbl.dupuis.lol/account/signup';
         }).catch((error) => {
-            showToast('Error signing out: ' + error.message, 'error');
+            ui.showToast('Error signing out: ' + error.message, 'error');
         });
     }
 
@@ -382,6 +439,106 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    // New feature: Keyboard shortcuts
+    function setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        addNote();
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        elements.searchInput.focus();
+                        break;
+                    case '0':
+                        e.preventDefault();
+                        resetView();
+                        break;
+                }
+            }
+        });
+    }
+
+    // New feature: Auto-save draft notes
+    let noteDraft = {
+        title: '',
+        content: '',
+        color: '#fef9b0'
+    };
+
+    function setupAutosave() {
+        if (elements.noteTitle) {
+            elements.noteTitle.addEventListener('input', saveDraft);
+        }
+        if (elements.noteContent) {
+            elements.noteContent.addEventListener('input', saveDraft);
+        }
+        if (elements.noteColor) {
+            elements.noteColor.addEventListener('change', saveDraft);
+        }
+
+        // Load draft on page load
+        loadDraft();
+    }
+
+    function saveDraft() {
+        noteDraft = {
+            title: elements.noteTitle ? elements.noteTitle.value : '',
+            content: elements.noteContent ? elements.noteContent.value : '',
+            color: elements.noteColor ? elements.noteColor.value : '#fef9b0'
+        };
+        localStorage.setItem('noteDraft', JSON.stringify(noteDraft));
+    }
+
+    function loadDraft() {
+        const savedDraft = localStorage.getItem('noteDraft');
+        if (savedDraft) {
+            noteDraft = JSON.parse(savedDraft);
+            if (elements.noteTitle) elements.noteTitle.value = noteDraft.title;
+            if (elements.noteContent) elements.noteContent.value = noteDraft.content;
+            if (elements.noteColor) elements.noteColor.value = noteDraft.color;
+        }
+    }
+
+    // New feature: Note statistics
+    function updateNoteStatistics() {
+        const totalNotes = Object.keys(notes).length;
+        const colorCounts = {};
+        Object.values(notes).forEach(note => {
+            colorCounts[note.color] = (colorCounts[note.color] || 0) + 1;
+        });
+
+        const statsElement = document.createElement('div');
+        statsElement.className = 'note-statistics';
+        statsElement.innerHTML = `
+            <h3>Board Statistics</h3>
+            <p>Total Notes: ${totalNotes}</p>
+            <h4>Notes by Color:</h4>
+            <ul>
+                ${Object.entries(colorCounts).map(([color, count]) => `
+                    <li style="color: ${color}">
+                        ${color}: ${count} note${count !== 1 ? 's' : ''}
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+
+        const existingStats = document.querySelector('.note-statistics');
+        if (existingStats) {
+            existingStats.replaceWith(statsElement);
+        } else if (elements.sidebar) {
+            elements.sidebar.appendChild(statsElement);
+        }
+    }
+
     // Initialize
     loadTheme();
+    setupKeyboardShortcuts();
+    setupAutosave();
+
+    // Update note statistics whenever notes change
+    const notesRef = ref(database, `boards/${currentBoard}/notes`);
+    onValue(notesRef, updateNoteStatistics);
 });
