@@ -75,9 +75,9 @@ function initializeView() {
     const mode = urlParams.get('mode');
 
     if (!classId) {
-        showNotification('Invalid class ID. Redirecting to dashboard...', 'error');
+        showNotification('Class ID is missing. Redirecting to dashboard...', 'error');
         setTimeout(() => {
-            window.location.href = 'dashboard.html';
+            window.location.href = 'dashboard';
         }, 3000);
         return;
     }
@@ -125,9 +125,9 @@ async function loadClassData() {
             loadMembers();
             setupDiscussion();
         } else {
-            showNotification('Class not found.', 'error');
+            showNotification('Class not found. Redirecting to dashboard...', 'error');
             setTimeout(() => {
-                window.location.href = 'dashboard.html';
+                window.location.href = 'dashboard';
             }, 3000);
         }
     } catch (error) {
