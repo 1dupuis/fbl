@@ -309,9 +309,13 @@ function createClassCard(classCode, classData) {
         <h3>${classData.name}</h3>
         <p>${classData.subject}</p>
         <p>Code: ${classCode}</p>
-        <button onclick="showClassDetails('${classCode}')">View Details</button>
+        <button onclick="viewClass('${classCode}')">View Class</button>
     `;
     return card;
+}
+
+window.viewClass = function(classCode) {
+    window.location.href = `view?id=${classCode}`;
 }
 
 // Show class details
