@@ -22,25 +22,35 @@ const config = {
 
 // Initialize Firebase
 let auth, database;
-if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(config.firebase);
-    auth = firebase.auth();
-    database = firebase.database();
-} else {
-    console.warn('Firebase is not available. Some features may not work.');
+function initializeFirebase() {
+    return import('https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js')
+        .then((firebase) => {
+            const app = firebase.initializeApp(config.firebase);
+            return Promise.all([
+                import('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js'),
+                import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js')
+            ]).then(([authModule, databaseModule]) => {
+                auth = authModule.getAuth(app);
+                database = databaseModule.getDatabase(app);
+                console.log('Firebase initialized successfully');
+            });
+        })
+        .catch((error) => {
+            console.error('Error initializing Firebase:', error);
+        });
 }
 
 // Helper functions
-function createElementWithClass(tag, className) {
+const createElementWithClass = (tag, className) => {
     const element = document.createElement(tag);
     element.className = className;
     return element;
-}
+};
 
-function createGameCard(game) {
+const createGameCard = (game) => {
     const card = createElementWithClass('div', 'game-card fade-in');
     card.innerHTML = `
-        <img src="${game.image}" alt="${game.title}" loading="lazy">
+        <img src="${game.image || config.images.placeholder.game}" alt="${game.title}" loading="lazy">
         <div class="game-card-content">
             <h3>${game.title}</h3>
             <p class="rating" data-game-id="${game.id}">Rating: ${game.rating ? game.rating.toFixed(1) : 'N/A'}/5</p>
@@ -53,49 +63,49 @@ function createGameCard(game) {
         </div>
     `;
     return card;
-}
+};
 
-function createCategoryItem(category) {
+const createCategoryItem = (category) => {
     const item = createElementWithClass('div', 'category-item fade-in');
     item.innerHTML = `
-        <img src="${category.image}" alt="${category.name}" loading="lazy">
+        <img src="${category.image || config.images.placeholder.category}" alt="${category.name}" loading="lazy">
         <div class="category-item-content">
             <h3>${category.name}</h3>
         </div>
     `;
     return item;
-}
+};
 
-function createTopGameItem(game) {
+const createTopGameItem = (game) => {
     const item = createElementWithClass('div', 'top-game-item fade-in');
     item.innerHTML = `
-        <img src="${game.image}" alt="${game.title}" loading="lazy">
+        <img src="${game.image || config.images.placeholder.topGame}" alt="${game.title}" loading="lazy">
         <div>
             <h3>${game.title}</h3>
             <p class="downloads" data-game-id="${game.id}">Downloads: ${game.downloads || 0}</p>
         </div>
     `;
     return item;
-}
+};
 
 // Firebase functions
-function fetchGames() {
-    return database.ref('games').once('value').then(snapshot => {
-        const games = snapshot.val();
-        return Object.keys(games).map(key => ({
-            id: key,
-            ...games[key]
-        }));
-    });
-}
+const fetchGames = () => {
+    return database.ref('games').once('value')
+        .then(snapshot => {
+            const games = snapshot.val();
+            return Object.keys(games).map(key => ({
+                id: key,
+                ...games[key]
+            }));
+        });
+};
 
-function fetchCategories() {
-    return database.ref('categories').once('value').then(snapshot => {
-        return snapshot.val() || [];
-    });
-}
+const fetchCategories = () => {
+    return database.ref('categories').once('value')
+        .then(snapshot => snapshot.val() || []);
+};
 
-function updateGameRating(gameId, newRating) {
+const updateGameRating = (gameId, newRating) => {
     const gameRef = database.ref(`games/${gameId}`);
     return gameRef.transaction(game => {
         if (game) {
@@ -105,9 +115,9 @@ function updateGameRating(gameId, newRating) {
         }
         return game;
     });
-}
+};
 
-function incrementDownloads(gameId) {
+const incrementDownloads = (gameId) => {
     const gameRef = database.ref(`games/${gameId}`);
     return gameRef.transaction(game => {
         if (game) {
@@ -115,10 +125,10 @@ function incrementDownloads(gameId) {
         }
         return game;
     });
-}
+};
 
 // Dashboard population
-function populateDashboard() {
+const populateDashboard = () => {
     const gameCarousel = document.querySelector('.game-carousel');
     const categoryGrid = document.querySelector('.category-grid');
     const gameList = document.querySelector('.game-list');
@@ -163,12 +173,10 @@ function populateDashboard() {
             if (categoryGrid) categoryGrid.appendChild(createCategoryItem(category));
         });
     });
-}
+};
 
 // Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    populateDashboard();
-
+const setupEventListeners = () => {
     // Smooth scrolling
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
@@ -181,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Search functionality
     const searchBar = document.querySelector('.search-bar input');
-    searchBar?.addEventListener('input', (e) => {
+    searchBar?.addEventListener('input', debounce((e) => {
         const searchTerm = e.target.value.toLowerCase();
         fetchGames().then(games => {
             const filteredGames = games.filter(game => game.title.toLowerCase().includes(searchTerm));
@@ -197,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameList) gameList.appendChild(createTopGameItem(game));
             });
         });
-    });
+    }, 300));
 
     // Logout functionality
     document.getElementById('logout-link')?.addEventListener('click', (e) => {
@@ -218,27 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('download-btn')) {
             const gameId = e.target.getAttribute('data-game-id');
-            if (auth && database) {
-                const user = auth.currentUser;
-                if (user) {
-                    Promise.all([
-                        incrementDownloads(gameId),
-                        database.ref(`users/${user.uid}/downloads/${gameId}`).set(firebase.database.ServerValue.TIMESTAMP)
-                    ]).then(() => {
-                        console.log('Download recorded');
-                        alert('Game downloaded successfully!');
-                    }).catch((error) => {
-                        console.error('Error recording download:', error);
-                        alert('Error downloading game. Please try again.');
-                    });
-                } else {
-                    alert('Please sign in to download games.');
-                    window.location.href = 'fbl.dupuis.lol/account/signup';
-                }
-            } else {
-                console.warn('Auth or database is not available');
-                alert('Download feature is currently unavailable.');
-            }
+            handleDownload(gameId);
         }
     });
 
@@ -247,82 +235,140 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('rate-btn')) {
             const gameId = e.target.getAttribute('data-game-id');
             const ratingInput = e.target.previousElementSibling;
-            const rating = parseFloat(ratingInput.value);
-
-            if (isNaN(rating) || rating < 1 || rating > 5) {
-                alert('Please enter a valid rating between 1 and 5.');
-                return;
-            }
-
-            if (auth && database) {
-                const user = auth.currentUser;
-                if (user) {
-                    updateGameRating(gameId, rating).then(() => {
-                        console.log('Rating recorded');
-                        alert('Thank you for rating the game!');
-                        ratingInput.value = '';
-                    }).catch((error) => {
-                        console.error('Error recording rating:', error);
-                        alert('Error rating game. Please try again.');
-                    });
-                } else {
-                    alert('Please sign in to rate games.');
-                    window.location.href = 'fbl.dupuis.lol/account/signup';
-                }
-            } else {
-                console.warn('Auth or database is not available');
-                alert('Rating feature is currently unavailable.');
-            }
+            handleRating(gameId, ratingInput);
         }
     });
 
     // Profile management
     document.getElementById('profile-link')?.addEventListener('click', (e) => {
         e.preventDefault();
-        if (auth && database) {
-            const user = auth.currentUser;
-            if (user) {
-                const userDownloadsRef = database.ref(`users/${user.uid}/downloads`);
-                userDownloadsRef.once('value')
-                    .then((snapshot) => {
-                        const downloads = snapshot.val();
-                        let downloadHistory = '';
-                        for (let gameId in downloads) {
-                            downloadHistory += `<p>Game ID: ${gameId} - Downloaded on ${new Date(downloads[gameId]).toLocaleString()}</p>`;
-                        }
-                        alert(`User Profile:\nEmail: ${user.email}\n\nDownload History:\n${downloadHistory}`);
-                    })
-                    .catch((error) => {
-                        console.error('Error fetching download history:', error);
-                        alert('Error fetching profile information. Please try again.');
-                    });
-            }
-        } else {
-            console.warn('Auth or database is not available');
-            alert('Profile feature is currently unavailable.');
-        }
+        displayUserProfile();
     });
-});
+};
+
+// Helper functions
+const debounce = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func(...args), delay);
+    };
+};
+
+const handleDownload = (gameId) => {
+    if (auth && database) {
+        const user = auth.currentUser;
+        if (user) {
+            Promise.all([
+                incrementDownloads(gameId),
+                database.ref(`users/${user.uid}/downloads/${gameId}`).set(firebase.database.ServerValue.TIMESTAMP)
+            ]).then(() => {
+                console.log('Download recorded');
+                alert('Game downloaded successfully!');
+            }).catch((error) => {
+                console.error('Error recording download:', error);
+                alert('Error downloading game. Please try again.');
+            });
+        } else {
+            alert('Please sign in to download games.');
+            window.location.href = 'fbl.dupuis.lol/account/signup';
+        }
+    } else {
+        console.warn('Auth or database is not available');
+        alert('Download feature is currently unavailable.');
+    }
+};
+
+const handleRating = (gameId, ratingInput) => {
+    const rating = parseFloat(ratingInput.value);
+
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+        alert('Please enter a valid rating between 1 and 5.');
+        return;
+    }
+
+    if (auth && database) {
+        const user = auth.currentUser;
+        if (user) {
+            updateGameRating(gameId, rating).then(() => {
+                console.log('Rating recorded');
+                alert('Thank you for rating the game!');
+                ratingInput.value = '';
+            }).catch((error) => {
+                console.error('Error recording rating:', error);
+                alert('Error rating game. Please try again.');
+            });
+        } else {
+            alert('Please sign in to rate games.');
+            window.location.href = 'fbl.dupuis.lol/account/signup';
+        }
+    } else {
+        console.warn('Auth or database is not available');
+        alert('Rating feature is currently unavailable.');
+    }
+};
+
+const displayUserProfile = () => {
+    if (auth && database) {
+        const user = auth.currentUser;
+        if (user) {
+            const userDownloadsRef = database.ref(`users/${user.uid}/downloads`);
+            userDownloadsRef.once('value')
+                .then((snapshot) => {
+                    const downloads = snapshot.val();
+                    let downloadHistory = '';
+                    for (let gameId in downloads) {
+                        downloadHistory += `<p>Game ID: ${gameId} - Downloaded on ${new Date(downloads[gameId]).toLocaleString()}</p>`;
+                    }
+                    alert(`User Profile:\nEmail: ${user.email}\n\nDownload History:\n${downloadHistory}`);
+                })
+                .catch((error) => {
+                    console.error('Error fetching download history:', error);
+                    alert('Error fetching profile information. Please try again.');
+                });
+        }
+    } else {
+        console.warn('Auth or database is not available');
+        alert('Profile feature is currently unavailable.');
+    }
+};
 
 // User authentication
-if (auth) {
-    auth.onAuthStateChanged(user => {
-        const userAvatar = document.getElementById('user-avatar');
-        const profileLink = document.getElementById('profile-link');
-        const logoutLink = document.getElementById('logout-link');
-        
-        if (user) {
-            console.log('User is signed in:', user);
-            if (userAvatar) userAvatar.src = user.photoURL || config.images.placeholder.userAvatar;
-            if (profileLink) profileLink.style.display = 'block';
-            if (logoutLink) logoutLink.style.display = 'block';
-        } else {
-            console.log('User is signed out');
-            if (userAvatar) userAvatar.src = config.images.placeholder.userAvatar;
-            if (profileLink) profileLink.style.display = 'none';
-            if (logoutLink) logoutLink.style.display = 'none';
-        }
-    });
-} else {
-    console.warn('Auth is not available');
-}
+const setupAuthStateListener = () => {
+    if (auth) {
+        auth.onAuthStateChanged(user => {
+            const userAvatar = document.getElementById('user-avatar');
+            const profileLink = document.getElementById('profile-link');
+            const logoutLink = document.getElementById('logout-link');
+            
+            if (user) {
+                console.log('User is signed in:', user);
+                if (userAvatar) userAvatar.src = user.photoURL || config.images.placeholder.userAvatar;
+                if (profileLink) profileLink.style.display = 'block';
+                if (logoutLink) logoutLink.style.display = 'block';
+            } else {
+                console.log('User is signed out');
+                if (userAvatar) userAvatar.src = config.images.placeholder.userAvatar;
+                if (profileLink) profileLink.style.display = 'none';
+                if (logoutLink) logoutLink.style.display = 'none';
+            }
+        });
+    } else {
+        console.warn('Auth is not available');
+    }
+};
+
+// Initialize the application
+const init = async () => {
+    try {
+        await initializeFirebase();
+        setupEventListeners();
+        setupAuthStateListener();
+        populateDashboard();
+    } catch (error) {
+        console.error('Error initializing application:', error);
+    }
+};
+
+// Run the initialization when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', init);
