@@ -758,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUserData();
             loadUserClasses(); // Call loadUserClasses only once here
         } else {
-            window.location.href = '/login.html';
+            window.location.href = '/landing/explore';
         }
     });
 
