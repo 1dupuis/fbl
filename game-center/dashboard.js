@@ -19,10 +19,10 @@ const config = {
     },
     images: {
         placeholder: {
-            game: "/assets/images/placeholder-game.jpg",
-            category: "/assets/images/placeholder-category.jpg",
-            topGame: "/assets/images/placeholder-top-game.jpg",
-            userAvatar: "/assets/images/placeholder-avatar.jpg"
+            game: "https://picsum.photos/200/300/?blur",
+            category: "https://picsum.photos/200/300/?blur",
+            topGame: "https://picsum.photos/200/300/?blur",
+            userAvatar: "https://picsum.photos/200/300/?blur"
         }
     }
 };
