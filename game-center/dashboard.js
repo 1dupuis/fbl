@@ -19,10 +19,10 @@ const config = {
     },
     images: {
         placeholder: {
-            game: "https://picsum.photos/200/300/?blur",
-            category: "https://picsum.photos/200/300/?blur",
-            topGame: "https://picsum.photos/200/300/?blur",
-            userAvatar: "https://picsum.photos/200/300/?blur"
+            game: "https://picsum.photos/200/300",
+            category: "https://picsum.photos/200/300",
+            topGame: "https://picsum.photos/200/300",
+            userAvatar: "https://picsum.photos/200/300"
         }
     }
 };
@@ -47,11 +47,12 @@ const createElementWithClass = (tag, className) => {
 const createGameCard = (game) => {
     const card = createElementWithClass('div', 'game-card fade-in');
     card.innerHTML = `
-        <img src="${game.image || config.images.placeholder.game}" alt="${game.title}" loading="lazy">
+        <img src="${game.image}" alt="${game.title}" loading="lazy">
         <div class="game-card-content">
             <h3>${game.title}</h3>
             <p class="rating" data-game-id="${game.id}">Rating: ${game.rating ? game.rating.toFixed(1) : 'N/A'}/5</p>
             <p class="downloads" data-game-id="${game.id}">Downloads: ${game.downloads || 0}</p>
+            <a href="/game-center/play?id=${game.id}" class="play-btn">Play Now</a>
             <button class="download-btn" data-game-id="${game.id}">Download</button>
             <div class="rating-input">
                 <input type="number" min="1" max="5" step="0.1" placeholder="Rate (1-5)">
@@ -65,7 +66,7 @@ const createGameCard = (game) => {
 const createCategoryItem = (category) => {
     const item = createElementWithClass('div', 'category-item fade-in');
     item.innerHTML = `
-        <img src="${category.image || config.images.placeholder.category}" alt="${category.name}" loading="lazy">
+        <img src="${category.image}" alt="${category.name}" loading="lazy">
         <div class="category-item-content">
             <h3>${category.name}</h3>
         </div>
@@ -76,30 +77,75 @@ const createCategoryItem = (category) => {
 const createTopGameItem = (game) => {
     const item = createElementWithClass('div', 'top-game-item fade-in');
     item.innerHTML = `
-        <img src="${game.image || config.images.placeholder.topGame}" alt="${game.title}" loading="lazy">
+        <img src="${game.image}" alt="${game.title}" loading="lazy">
         <div>
             <h3>${game.title}</h3>
             <p class="downloads" data-game-id="${game.id}">Downloads: ${game.downloads || 0}</p>
+            <a href="/game-center/play?id=${game.id}" class="play-btn">Play Now</a>
         </div>
     `;
     return item;
 };
 
+// Test data
+const testGames = [
+    {
+        id: 'game1',
+        title: 'Space Adventure',
+        image: 'https://picsum.photos/seed/game1/200/300',
+        rating: 4.5,
+        downloads: 1000,
+        featured: true
+    },
+    {
+        id: 'game2',
+        title: 'Medieval Quest',
+        image: 'https://picsum.photos/seed/game2/200/300',
+        rating: 4.2,
+        downloads: 800,
+        featured: true
+    },
+    {
+        id: 'game3',
+        title: 'Puzzle Master',
+        image: 'https://picsum.photos/seed/game3/200/300',
+        rating: 4.7,
+        downloads: 1200,
+        featured: true
+    },
+    {
+        id: 'game4',
+        title: 'Racing Fever',
+        image: 'https://picsum.photos/seed/game4/200/300',
+        rating: 4.0,
+        downloads: 600
+    },
+    {
+        id: 'game5',
+        title: 'Zombie Survival',
+        image: 'https://picsum.photos/seed/game5/200/300',
+        rating: 4.3,
+        downloads: 900
+    }
+];
+
+const testCategories = [
+    { name: 'Action', image: 'https://picsum.photos/seed/action/200/300' },
+    { name: 'Adventure', image: 'https://picsum.photos/seed/adventure/200/300' },
+    { name: 'Puzzle', image: 'https://picsum.photos/seed/puzzle/200/300' },
+    { name: 'Racing', image: 'https://picsum.photos/seed/racing/200/300' },
+    { name: 'Strategy', image: 'https://picsum.photos/seed/strategy/200/300' }
+];
+
 // Firebase functions
 const fetchGames = () => {
-    return get(ref(database, 'games'))
-        .then(snapshot => {
-            const games = snapshot.val();
-            return games ? Object.keys(games).map(key => ({
-                id: key,
-                ...games[key]
-            })) : [];
-        });
+    // For testing purposes, return the test data
+    return Promise.resolve(testGames);
 };
 
 const fetchCategories = () => {
-    return get(ref(database, 'categories'))
-        .then(snapshot => snapshot.val() || []);
+    // For testing purposes, return the test data
+    return Promise.resolve(testCategories);
 };
 
 const updateGameRating = (gameId, newRating) => {
