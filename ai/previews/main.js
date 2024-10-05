@@ -145,7 +145,7 @@ class EnhancedChatbot {
                 iterations: 2500,
                 errorThresh: 0.003,
                 log: true,
-                logPeriod: 10,
+                logPeriod: 1,
                 callback: stats => {
                     this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
                 }
