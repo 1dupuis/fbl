@@ -39,7 +39,7 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [64, 32], // Further increased complexity
+            hiddenLayers: [64, 32],
             learningRate: 0.008,
             activation: 'leaky-relu',
             errorThresh: 0.003
@@ -53,17 +53,20 @@ class EnhancedChatbot {
         this.userProfile = null;
 
         this.elements = {
-            userInput: document.getElementById('userInput'),
-            sendBtn: document.getElementById('sendBtn'),
-            chatWindow: document.getElementById('chatWindow'),
-            typingIndicator: document.querySelector('.typing-indicator'),
-            status: document.getElementById('status'),
-            clearBtn: document.getElementById('clearBtn'),
-            logoutBtn: document.getElementById('logoutBtn')
+            userInput: null,
+            sendBtn: null,
+            chatWindow: null,
+            typingIndicator: null,
+            status: null,
+            clearBtn: null,
+            logoutBtn: null
         };
 
-        this.setInterfaceEnabled(false);
-        this.initialize().catch(this.handleError.bind(this));
+        // Delay initialization to ensure DOM is fully loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            this.initializeElements();
+            this.initialize().catch(this.handleError.bind(this));
+        });
     }
 
     async initialize() {
@@ -80,6 +83,27 @@ class EnhancedChatbot {
             this.loadPreviousConversation();
         } catch (error) {
             throw new Error('Initialization failed: ' + error.message);
+        }
+    }
+
+    initializeElements() {
+        this.elements = {
+            userInput: document.getElementById('userInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            chatWindow: document.getElementById('chatWindow'),
+            typingIndicator: document.querySelector('.typing-indicator'),
+            status: document.getElementById('status'),
+            clearBtn: document.getElementById('clearBtn'),
+            logoutBtn: document.getElementById('logoutBtn')
+        };
+
+        // Check if all required elements are present
+        const missingElements = Object.entries(this.elements)
+            .filter(([key, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingElements.length > 0) {
+            throw new Error(`Missing DOM elements: ${missingElements.join(', ')}`);
         }
     }
 
@@ -274,24 +298,32 @@ class EnhancedChatbot {
     }
 
     setupEventListeners() {
-        this.elements.sendBtn.addEventListener('click', () => this.handleUserInput());
+        if (this.elements.sendBtn) {
+            this.elements.sendBtn.addEventListener('click', () => this.handleUserInput());
+        }
 
-        this.elements.userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.handleUserInput();
-            }
-        });
+        if (this.elements.userInput) {
+            this.elements.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleUserInput();
+                }
+            });
 
-        this.elements.clearBtn.addEventListener('click', () => this.clearChat());
+            this.elements.userInput.addEventListener('focus', () => {
+                if (this.elements.status && this.elements.status.classList.contains('error')) {
+                    this.updateStatus('Ready to chat!', 'success');
+                }
+            });
+        }
 
-        this.elements.userInput.addEventListener('focus', () => {
-            if (this.elements.status.classList.contains('error')) {
-                this.updateStatus('Ready to chat!', 'success');
-            }
-        });
+        if (this.elements.clearBtn) {
+            this.elements.clearBtn.addEventListener('click', () => this.clearChat());
+        }
 
-        this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
+        if (this.elements.logoutBtn) {
+            this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
 
         window.addEventListener('online', () => {
             if (this.isInitialized) {
@@ -309,7 +341,7 @@ class EnhancedChatbot {
         });
 
         window.addEventListener('beforeunload', (e) => {
-            if (this.elements.userInput.value.trim()) {
+            if (this.elements.userInput && this.elements.userInput.value.trim()) {
                 e.preventDefault();
                 e.returnValue = '';
             }
@@ -328,14 +360,22 @@ class EnhancedChatbot {
     }
 
     updateStatus(message, type = '') {
-        this.elements.status.textContent = message;
-        this.elements.status.className = type;
+        if (this.elements.status) {
+            this.elements.status.textContent = message;
+            this.elements.status.className = type;
+        } else {
+            console.warn('Status element not found. Status update:', message, type);
+        }
     }
 
     setInterfaceEnabled(enabled) {
-        this.elements.userInput.disabled = !enabled;
-        this.elements.sendBtn.disabled = !enabled;
-        if (enabled) {
+        if (this.elements.userInput) {
+            this.elements.userInput.disabled = !enabled;
+        }
+        if (this.elements.sendBtn) {
+            this.elements.sendBtn.disabled = !enabled;
+        }
+        if (enabled && this.elements.userInput) {
             this.elements.userInput.focus();
         }
     }
