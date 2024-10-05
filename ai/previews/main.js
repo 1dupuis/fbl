@@ -91,8 +91,8 @@ class EnhancedChatbot {
                     this.userId = user.uid;
                     resolve();
                 } else {
-                    this.updateStatus('Please log in to use the chatbot.', 'error');
-                    reject(new Error('User not authenticated'));
+                    this.updateStatus('Please log in.', 'error');
+                    //reject(new Error('User not authenticated'));
                 }
             }, reject);
         });
