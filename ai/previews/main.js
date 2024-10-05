@@ -18,7 +18,7 @@ import {
     update,
     remove
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
-import { resetInactivityTimer } from '/background/access.js';
+//import { resetInactivityTimer } from '/background/access.js';
 
 // Initialize Firebase
 const firebaseConfig = {
