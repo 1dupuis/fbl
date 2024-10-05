@@ -431,3 +431,5 @@ window.addEventListener('DOMContentLoaded', () => {
         console.error('Initialization error:', error);
     }
 });
+
+const chatbot = new EnhancedChatbot();
