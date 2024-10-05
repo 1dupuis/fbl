@@ -164,10 +164,10 @@ class EnhancedChatbot {
         this.isTraining = true;
         try {
             await this.net.train(this.trainingData, {
-                iterations: 2500,
+                iterations: 500,
                 errorThresh: 0.003,
                 log: true,
-                logPeriod: 1,
+                logPeriod: 100,
                 callback: stats => {
                     this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
                 }
