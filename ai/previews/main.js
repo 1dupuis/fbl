@@ -94,7 +94,7 @@ class EnhancedChatbot {
                     this.updateStatus('Please log in.', 'error');
                     //reject(new Error('User not authenticated'));
                 }
-            }, reject);
+            });
         //});
     }
 
