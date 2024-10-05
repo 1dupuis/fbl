@@ -84,7 +84,7 @@ class EnhancedChatbot {
     }
 
     async initializeFirebase() {
-        return new Promise((resolve, reject) => {
+        //return new Promise((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(auth, (user) => {
                 unsubscribe(); // Unsubscribe to avoid memory leaks
                 if (user) {
@@ -95,7 +95,7 @@ class EnhancedChatbot {
                     //reject(new Error('User not authenticated'));
                 }
             }, reject);
-        });
+        //});
     }
 
     async loadUserProfile() {
