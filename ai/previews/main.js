@@ -59,7 +59,6 @@ class EnhancedChatbot {
             typingIndicator: null,
             status: null,
             clearBtn: null,
-            logoutBtn: null
         };
 
         // Delay initialization to ensure DOM is fully loaded
@@ -94,7 +93,6 @@ class EnhancedChatbot {
             typingIndicator: document.querySelector('.typing-indicator'),
             status: document.getElementById('status'),
             clearBtn: document.getElementById('clearBtn'),
-            logoutBtn: document.getElementById('logoutBtn')
         };
 
         // Check if all required elements are present
@@ -321,10 +319,6 @@ class EnhancedChatbot {
             this.elements.clearBtn.addEventListener('click', () => this.clearChat());
         }
 
-        if (this.elements.logoutBtn) {
-            this.elements.logoutBtn.addEventListener('click', () => this.handleLogout());
-        }
-
         window.addEventListener('online', () => {
             if (this.isInitialized) {
                 this.updateStatus('Connection restored!', 'success');
@@ -346,17 +340,6 @@ class EnhancedChatbot {
                 e.returnValue = '';
             }
         });
-    }
-
-    async handleLogout() {
-        try {
-            await signOut(auth);
-            // Redirect to login page or update UI
-            window.location.href = '/account/signup';
-        } catch (error) {
-            console.error('Logout error:', error);
-            this.updateStatus('Failed to log out. Please try again.', 'error');
-        }
     }
 
     updateStatus(message, type = '') {
