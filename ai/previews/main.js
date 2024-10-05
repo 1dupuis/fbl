@@ -45,6 +45,13 @@ class EnhancedChatbot {
             errorThresh: 0.003
         });
 
+        this.trainingMetrics = {
+            lastError: null,
+            totalIterations: 0,
+            bestError: Infinity,
+            lastTrainingTimestamp: null
+        };
+
         this.contextWindow = [];
         this.maxContextLength = 6;
         this.isTraining = false;
@@ -121,33 +128,45 @@ class EnhancedChatbot {
     }
 
     async initializeGlobalModel() {
-        this.globalModelRef = ref(database, 'globalModel');
-        
-        // Load or initialize global model state
-        const snapshot = await get(this.globalModelRef);
-        if (snapshot.exists()) {
-            this.networkState = snapshot.val();
-            this.net.fromJSON(this.networkState.model);
-            this.trainingData = this.networkState.trainingData;
-        } else {
-            // Initialize with default state
-            await this.loadTrainingData();
-            await this.trainNetwork();
-            await this.saveModelState();
-        }
-
-        // Set up real-time sync for training data
-        onValue(ref(database, 'trainingData'), (snapshot) => {
-            if (snapshot.exists()) {
-                const newTrainingData = snapshot.val();
-                if (this.hasNewTrainingData(newTrainingData)) {
-                    this.trainingData = newTrainingData;
-                    this.trainNetwork();
+            this.globalModelRef = ref(database, 'globalModel');
+            
+            try {
+                const snapshot = await get(this.globalModelRef);
+                if (snapshot.exists()) {
+                    const savedState = snapshot.val();
+                    
+                    // Restore network state and training metrics
+                    if (savedState.model) {
+                        console.log('Restoring model state with error:', savedState.performance.errorRate);
+                        this.net.fromJSON(savedState.model);
+                        this.trainingMetrics = {
+                            lastError: savedState.performance.errorRate,
+                            totalIterations: savedState.performance.totalIterations || 0,
+                            bestError: savedState.performance.bestError || savedState.performance.errorRate,
+                            lastTrainingTimestamp: savedState.lastUpdated
+                        };
+                    }
+                    
+                    // Restore training data
+                    if (savedState.trainingData) {
+                        this.trainingData = savedState.trainingData;
+                    } else {
+                        await this.loadTrainingData();
+                    }
+                } else {
+                    await this.loadTrainingData();
+                    await this.trainNetwork();
                 }
-            }
-        });
-    }
 
+                // Set up real-time sync for training data
+                this.setupTrainingDataSync();
+            } catch (error) {
+                console.error('Error initializing global model:', error);
+                await this.loadTrainingData();
+                await this.trainNetwork();
+            }
+        }
+    
     async loadUserProfile() {
         if (!this.userId) return;
         
@@ -190,53 +209,224 @@ class EnhancedChatbot {
         return JSON.stringify(this.trainingData) !== JSON.stringify(newData);
     }
 
-    async saveModelState() {
-        if (!this.isTraining) {
-            try {
-                const modelState = {
-                    model: this.net.toJSON(),
-                    trainingData: this.trainingData,
-                    lastUpdated: Date.now(),
-                    performance: {
-                        errorRate: this.net.error,
-                        iterations: this.net.iterations
-                    }
-                };
-
-                await update(this.globalModelRef, modelState);
-            } catch (error) {
-                console.error('Error saving model state:', error);
-            }
-        }
-    }
-
-    async trainNetwork() {
-        this.isTraining = true;
-        try {
-            await this.net.train(this.trainingData, {
-                iterations: 2500,
-                errorThresh: 0.003,
-                log: true,
-                logPeriod: 1,
-                callback: async (stats) => {
-                    this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
-                    
-                    // Save training progress periodically
-                    if (stats.iterations % 100 === 0) {
-                        await this.saveModelState();
+    setupTrainingDataSync() {
+            onValue(ref(database, 'trainingData'), async (snapshot) => {
+                if (snapshot.exists()) {
+                    const newTrainingData = snapshot.val();
+                    if (this.hasNewTrainingData(newTrainingData)) {
+                        console.log('New training data detected');
+                        this.trainingData = newTrainingData;
+                        await this.trainNetwork(true); // true indicates incremental training
                     }
                 }
             });
+        }
 
-            // Save final model state after training
+        hasNewTrainingData(newData) {
+            if (!this.trainingData) return true;
+            if (newData.length !== this.trainingData.length) return true;
+            return JSON.stringify(newData) !== JSON.stringify(this.trainingData);
+        }
+
+    async saveModelState() {
+            if (!this.isTraining) {
+                try {
+                    const modelState = {
+                        model: this.net.toJSON(),
+                        trainingData: this.trainingData,
+                        lastUpdated: Date.now(),
+                        performance: {
+                            errorRate: this.trainingMetrics.lastError,
+                            totalIterations: this.trainingMetrics.totalIterations,
+                            bestError: this.trainingMetrics.bestError,
+                            iterations: this.net.iterations
+                        }
+                    };
+
+                    await update(this.globalModelRef, modelState);
+                    console.log('Model state saved with error:', this.trainingMetrics.lastError);
+                } catch (error) {
+                    console.error('Error saving model state:', error);
+                }
+            }
+        }
+
+    async trainNetwork(isIncremental = false) {
+    if (this.isTraining) {
+        console.log('Training already in progress, skipping...');
+        return;
+    }
+
+    // Prevent training with empty or invalid data
+    if (!this.trainingData || !Array.isArray(this.trainingData) || this.trainingData.length === 0) {
+        console.error('No valid training data available');
+        this.updateStatus('Error: No training data available', 'error');
+        return;
+    }
+
+    this.isTraining = true;
+    const startTime = Date.now();
+    let lastSaveTime = startTime;
+    const saveInterval = 30000; // Save every 30 seconds
+
+    try {
+        // Load previous state if available
+        const modelStateRef = ref(database, 'globalModel');
+        const snapshot = await get(modelStateRef);
+        let previousError = Infinity;
+        let stagnantIterations = 0;
+        const maxStagnantIterations = 50;
+
+        if (snapshot.exists()) {
+            const savedState = snapshot.val();
+            if (savedState.performance?.errorRate) {
+                previousError = savedState.performance.errorRate;
+                console.log('Resuming training from previous error rate:', previousError);
+            }
+        }
+
+        // Configure base training options
+        const baseIterations = isIncremental ? 100 : 1000;
+        const targetError = isIncremental ? Math.max(0.001, previousError * 0.9) : 0.003;
+        
+        // Calculate adaptive learning rate
+        const adaptiveLearningRate = this.calculateAdaptiveLearningRate(previousError, isIncremental);
+        this.net.trainOpts.learningRate = adaptiveLearningRate;
+
+        console.log(`Starting training with learning rate: ${adaptiveLearningRate}`);
+        console.log(`Target error: ${targetError}`);
+
+        const trainingOptions = {
+            iterations: baseIterations,
+            errorThresh: targetError,
+            log: true,
+            logPeriod: 1,
+            momentum: 0.1,
+            callback: async (stats) => {
+                try {
+                    const currentError = stats.error;
+                    const currentIteration = stats.iterations;
+                    const timeSinceLastSave = Date.now() - lastSaveTime;
+
+                    // Update training metrics
+                    this.trainingMetrics = {
+                        ...this.trainingMetrics,
+                        lastError: currentError,
+                        totalIterations: (this.trainingMetrics.totalIterations || 0) + 1,
+                        bestError: Math.min(currentError, this.trainingMetrics.bestError || Infinity),
+                        lastTrainingTimestamp: Date.now()
+                    };
+
+                    // Check for training stagnation
+                    if (Math.abs(currentError - previousError) < 0.0001) {
+                        stagnantIterations++;
+                    } else {
+                        stagnantIterations = 0;
+                    }
+
+                    // Update status with detailed information
+                    this.updateStatus(
+                        `Training: Iteration ${currentIteration}/${baseIterations} | ` +
+                        `Error: ${currentError.toFixed(4)} | ` +
+                        `Best: ${this.trainingMetrics.bestError.toFixed(4)}`,
+                        'loading'
+                    );
+
+                    // Periodic save based on time interval or significant improvement
+                    if (timeSinceLastSave >= saveInterval || 
+                        (currentError < previousError * 0.9)) { // 10% improvement
+                        await this.saveModelState();
+                        lastSaveTime = Date.now();
+                        console.log(`Saved model state at iteration ${currentIteration} with error ${currentError}`);
+                    }
+
+                    // Early stopping conditions
+                    if (stagnantIterations >= maxStagnantIterations) {
+                        console.log('Training stopped due to stagnation');
+                        return true; // Stop training
+                    }
+
+                    if (currentError <= targetError) {
+                        console.log('Target error reached');
+                        return true; // Stop training
+                    }
+
+                    // Update previous error for next iteration
+                    previousError = currentError;
+
+                } catch (callbackError) {
+                    console.error('Error in training callback:', callbackError);
+                    // Don't throw here to allow training to continue
+                }
+            }
+        };
+
+        // Perform the actual training
+        console.log('Starting neural network training...');
+        const trainingStartTime = Date.now();
+        
+        await this.net.train(this.trainingData, trainingOptions);
+        
+        const trainingDuration = (Date.now() - trainingStartTime) / 1000;
+        console.log(`Training completed in ${trainingDuration.toFixed(2)} seconds`);
+
+        // Final save of model state
+        await this.saveModelState();
+
+        // Update status with final results
+        this.updateStatus(
+            `Training complete! Final error: ${this.trainingMetrics.lastError.toFixed(4)}`,
+            'success'
+        );
+
+        // Log training summary
+        console.log('Training Summary:', {
+            finalError: this.trainingMetrics.lastError,
+            bestError: this.trainingMetrics.bestError,
+            totalIterations: this.trainingMetrics.totalIterations,
+            duration: trainingDuration
+        });
+
+    } catch (error) {
+        console.error('Fatal training error:', error);
+        this.updateStatus('Training error occurred. Using fallback responses.', 'error');
+        
+        // Attempt to save the last good state
+        try {
             await this.saveModelState();
-        } catch (error) {
-            console.error('Training error:', error);
-            this.updateStatus('Error in training. Using fallback responses.', 'error');
-        } finally {
-            this.isTraining = false;
+        } catch (saveError) {
+            console.error('Error saving model state after training error:', saveError);
+        }
+
+    } finally {
+        this.isTraining = false;
+        
+        // Schedule next incremental training if needed
+        if (isIncremental && this.trainingMetrics.lastError > targetError) {
+            setTimeout(() => {
+                this.trainNetwork(true).catch(console.error);
+            }, 60000); // Wait 1 minute before trying again
         }
     }
+}
+
+// Helper method for calculating adaptive learning rate
+calculateAdaptiveLearningRate(previousError, isIncremental) {
+    if (isIncremental) {
+        // For incremental training, use a smaller learning rate based on current error
+        return Math.min(0.008, Math.max(0.001, previousError * 0.1));
+    }
+
+    // For full training, use dynamic rate based on training progress
+    if (previousError === Infinity) {
+        return 0.008; // Initial learning rate
+    }
+
+    // Scale learning rate based on error magnitude
+    const baseRate = 0.008;
+    const errorScale = Math.min(1, Math.max(0.1, previousError));
+    return baseRate * errorScale;
+}
 
     preprocessInput(text) {
         return text.toLowerCase()
@@ -275,24 +465,33 @@ class EnhancedChatbot {
     }
 
     async updateTrainingData(input, output) {
-        if (!this.isTraining) {
-            try {
-                const trainingDataRef = ref(database, 'trainingData');
-                const newTrainingData = [...this.trainingData, { input, output }];
-                
-                // Update local and Firebase training data
-                this.trainingData = newTrainingData;
-                await set(trainingDataRef, newTrainingData);
-                
-                // Trigger retraining if enough new data accumulated
-                if (newTrainingData.length % 10 === 0) {
-                    await this.trainNetwork();
+            if (!this.isTraining) {
+                try {
+                    const trainingDataRef = ref(database, 'trainingData');
+                    const newExample = { input, output };
+
+                    // Check if this exact example already exists
+                    const exists = this.trainingData.some(data => 
+                        data.input === input && data.output === output
+                    );
+
+                    if (!exists) {
+                        const newTrainingData = [...this.trainingData, newExample];
+                        
+                        // Update local and Firebase training data
+                        this.trainingData = newTrainingData;
+                        await set(trainingDataRef, newTrainingData);
+                        
+                        // Trigger incremental training if enough new data accumulated
+                        if (newTrainingData.length % 5 === 0) {
+                            await this.trainNetwork(true);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating training data:', error);
                 }
-            } catch (error) {
-                console.error('Error updating training data:', error);
             }
         }
-    }
 
     async saveConversation(userInput, botResponse) {
         if (!this.userId) return;
