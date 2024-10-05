@@ -683,18 +683,20 @@ calculateAdaptiveLearningRate(previousError, isIncremental) {
 
 // Initialize the chatbot when the page loads
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('DOMContentLoaded event fired');
     try {
         if (typeof brain === 'undefined') {
             throw new Error('Brain.js library not loaded');
         }
+        console.log('Initializing EnhancedChatbot');
         window.chatbot = new EnhancedChatbot();
     } catch (error) {
+        console.error('Initialization error:', error);
         const status = document.getElementById('status');
         if (status) {
             status.textContent = 'Error: Failed to initialize chatbot. Please refresh the page.';
             status.className = 'error';
         }
-        console.error('Initialization error:', error);
     }
 });
 
