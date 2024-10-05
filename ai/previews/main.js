@@ -10,15 +10,15 @@ import {
     ref, 
     set, 
     get, 
-    push, 
+    push,
     query, 
     orderByChild, 
     equalTo,
     onValue,
     update,
-    remove
+    remove,
+    limitToLast
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
-//import { resetInactivityTimer } from '/background/access.js';
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -51,6 +51,9 @@ class EnhancedChatbot {
         this.isInitialized = false;
         this.userId = null;
         this.userProfile = null;
+        this.globalModelRef = null;
+        this.networkState = null;
+        this.trainingData = null;
 
         this.elements = {
             userInput: null,
@@ -61,7 +64,6 @@ class EnhancedChatbot {
             clearBtn: null,
         };
 
-        // Delay initialization to ensure DOM is fully loaded
         window.addEventListener('DOMContentLoaded', () => {
             this.initializeElements();
             this.initialize().catch(this.handleError.bind(this));
@@ -73,13 +75,13 @@ class EnhancedChatbot {
             this.updateStatus('Initializing...', 'loading');
             await this.initializeFirebase();
             await this.loadUserProfile();
-            await this.loadTrainingData();
-            await this.trainNetwork();
+            await this.initializeGlobalModel();
             this.isInitialized = true;
             this.updateStatus('Ready to chat!', 'success');
             this.setInterfaceEnabled(true);
             this.setupEventListeners();
             this.loadPreviousConversation();
+            this.startModelSyncListener();
         } catch (error) {
             throw new Error('Initialization failed: ' + error.message);
         }
@@ -95,7 +97,6 @@ class EnhancedChatbot {
             clearBtn: document.getElementById('clearBtn'),
         };
 
-        // Check if all required elements are present
         const missingElements = Object.entries(this.elements)
             .filter(([key, value]) => !value)
             .map(([key]) => key);
@@ -108,26 +109,53 @@ class EnhancedChatbot {
     async initializeFirebase() {
         return new Promise((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(auth, (user) => {
-                unsubscribe(); // Unsubscribe to avoid memory leaks
+                unsubscribe();
                 if (user) {
                     this.userId = user.uid;
                     resolve();
                 } else {
-                    //this.updateStatus('Please log in.', 'error');
-                    //reject(new Error('User not authenticated'));
+                    resolve(); // Allow anonymous usage
                 }
             });
         });
     }
 
+    async initializeGlobalModel() {
+        this.globalModelRef = ref(database, 'globalModel');
+        
+        // Load or initialize global model state
+        const snapshot = await get(this.globalModelRef);
+        if (snapshot.exists()) {
+            this.networkState = snapshot.val();
+            this.net.fromJSON(this.networkState.model);
+            this.trainingData = this.networkState.trainingData;
+        } else {
+            // Initialize with default state
+            await this.loadTrainingData();
+            await this.trainNetwork();
+            await this.saveModelState();
+        }
+
+        // Set up real-time sync for training data
+        onValue(ref(database, 'trainingData'), (snapshot) => {
+            if (snapshot.exists()) {
+                const newTrainingData = snapshot.val();
+                if (this.hasNewTrainingData(newTrainingData)) {
+                    this.trainingData = newTrainingData;
+                    this.trainNetwork();
+                }
+            }
+        });
+    }
+
     async loadUserProfile() {
-        if (!this.userId) throw new Error('User ID not set');
+        if (!this.userId) return;
+        
         const userProfileRef = ref(database, `users/${this.userId}/profile`);
         const snapshot = await get(userProfileRef);
         if (snapshot.exists()) {
             this.userProfile = snapshot.val();
         } else {
-            // Initialize with default profile if none exists
             this.userProfile = { name: 'User', preferences: {} };
             await set(userProfileRef, this.userProfile);
         }
@@ -140,7 +168,6 @@ class EnhancedChatbot {
             if (snapshot.exists()) {
                 this.trainingData = snapshot.val();
             } else {
-                // Initialize with default data if none exists
                 this.trainingData = [
                     { input: "hello", output: "Hi! How can I help you?" },
                     { input: "how are you", output: "I'm here to assist you. What can I do for you today?" },
@@ -152,7 +179,6 @@ class EnhancedChatbot {
             }
         } catch (error) {
             console.error('Error loading training data:', error);
-            // Fallback to default data if loading fails
             this.trainingData = [
                 { input: "hello", output: "Hi! How can I help you?" },
                 { input: "how are you", output: "I'm here to assist you. What can I do for you today?" }
@@ -160,18 +186,50 @@ class EnhancedChatbot {
         }
     }
 
+    hasNewTrainingData(newData) {
+        return JSON.stringify(this.trainingData) !== JSON.stringify(newData);
+    }
+
+    async saveModelState() {
+        if (!this.isTraining) {
+            try {
+                const modelState = {
+                    model: this.net.toJSON(),
+                    trainingData: this.trainingData,
+                    lastUpdated: Date.now(),
+                    performance: {
+                        errorRate: this.net.error,
+                        iterations: this.net.iterations
+                    }
+                };
+
+                await update(this.globalModelRef, modelState);
+            } catch (error) {
+                console.error('Error saving model state:', error);
+            }
+        }
+    }
+
     async trainNetwork() {
         this.isTraining = true;
         try {
             await this.net.train(this.trainingData, {
-                iterations: 500,
+                iterations: 2500,
                 errorThresh: 0.003,
                 log: true,
-                logPeriod: 100,
-                callback: stats => {
+                logPeriod: 1,
+                callback: async (stats) => {
                     this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
+                    
+                    // Save training progress periodically
+                    if (stats.iterations % 100 === 0) {
+                        await this.saveModelState();
+                    }
                 }
             });
+
+            // Save final model state after training
+            await this.saveModelState();
         } catch (error) {
             console.error('Training error:', error);
             this.updateStatus('Error in training. Using fallback responses.', 'error');
@@ -188,14 +246,11 @@ class EnhancedChatbot {
 
     async getResponse(userInput) {
         const sanitizedInput = this.preprocessInput(userInput);
-        
-        // Add context to the input
         const contextualInput = [...this.contextWindow, sanitizedInput].join(' ');
         
         try {
             let response = await this.net.run(contextualInput);
             
-            // If the response is empty or irrelevant, try without context
             if (!response || response === "I'm not quite sure how to respond to that.") {
                 response = await this.net.run(sanitizedInput);
             }
@@ -206,13 +261,36 @@ class EnhancedChatbot {
             this.contextWindow.push(sanitizedInput);
             this.contextWindow = this.contextWindow.slice(-this.maxContextLength);
             
-            // Save conversation to Firebase
-            await this.saveConversation(userInput, finalResponse);
+            // Save conversation and update training data
+            await Promise.all([
+                this.saveConversation(userInput, finalResponse),
+                this.updateTrainingData(sanitizedInput, finalResponse)
+            ]);
             
             return finalResponse;
         } catch (error) {
             console.error('Response generation error:', error);
             return "I'm having trouble processing that. Could you try saying it differently?";
+        }
+    }
+
+    async updateTrainingData(input, output) {
+        if (!this.isTraining) {
+            try {
+                const trainingDataRef = ref(database, 'trainingData');
+                const newTrainingData = [...this.trainingData, { input, output }];
+                
+                // Update local and Firebase training data
+                this.trainingData = newTrainingData;
+                await set(trainingDataRef, newTrainingData);
+                
+                // Trigger retraining if enough new data accumulated
+                if (newTrainingData.length % 10 === 0) {
+                    await this.trainNetwork();
+                }
+            } catch (error) {
+                console.error('Error updating training data:', error);
+            }
         }
     }
 
@@ -229,7 +307,44 @@ class EnhancedChatbot {
             });
         } catch (error) {
             console.error('Error saving conversation:', error);
-            // Optionally, notify the user that the conversation couldn't be saved
+        }
+    }
+
+    startModelSyncListener() {
+        onValue(this.globalModelRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const newState = snapshot.val();
+                if (newState.lastUpdated > (this.networkState?.lastUpdated || 0)) {
+                    this.networkState = newState;
+                    this.net.fromJSON(newState.model);
+                    this.trainingData = newState.trainingData;
+                }
+            }
+        });
+    }
+
+    async handleUserInput() {
+        const userInput = this.elements.userInput.value.trim();
+        
+        if (!userInput || !this.isInitialized || this.isTraining) return;
+
+        this.elements.userInput.value = '';
+        this.setInterfaceEnabled(false);
+        
+        this.addMessage(userInput, 'user');
+        this.elements.typingIndicator.style.display = 'inline-flex';
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+            const response = await this.getResponse(userInput);
+            this.addMessage(response, 'bot');
+        } catch (error) {
+            this.handleError('Failed to generate response. Please try again.');
+            this.addMessage("I apologize, but I'm having trouble right now. Please try again.", 'bot');
+        } finally {
+            this.elements.typingIndicator.style.display = 'none';
+            this.setInterfaceEnabled(true);
+            this.elements.userInput.focus();
         }
     }
 
@@ -258,7 +373,6 @@ class EnhancedChatbot {
         }
         this.addMessage("Chat cleared. How can I help you?", 'bot');
         
-        // Clear conversation history in Firebase
         if (this.userId) {
             const conversationRef = ref(database, `users/${this.userId}/conversations`);
             try {
@@ -267,31 +381,6 @@ class EnhancedChatbot {
                 console.error('Error clearing conversation history:', error);
                 this.updateStatus('Failed to clear conversation history.', 'error');
             }
-        }
-    }
-
-    async handleUserInput() {
-        const userInput = this.elements.userInput.value.trim();
-        
-        if (!userInput || !this.isInitialized || this.isTraining) return;
-
-        this.elements.userInput.value = '';
-        this.setInterfaceEnabled(false);
-        
-        this.addMessage(userInput, 'user');
-        this.elements.typingIndicator.style.display = 'inline-flex';
-
-        try {
-            await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-            const response = await this.getResponse(userInput);
-            this.addMessage(response, 'bot');
-        } catch (error) {
-            this.handleError('Failed to generate response. Please try again.');
-            this.addMessage("I apologize, but I'm having trouble right now. Please try again.", 'bot');
-        } finally {
-            this.elements.typingIndicator.style.display = 'none';
-            this.setInterfaceEnabled(true);
-            this.elements.userInput.focus();
         }
     }
 
@@ -333,13 +422,32 @@ class EnhancedChatbot {
         window.addEventListener('offline', () => {
             this.updateStatus('Connection lost. Please check your internet connection.', 'error');
         });
+    }
 
-        window.addEventListener('beforeunload', (e) => {
-            if (this.elements.userInput && this.elements.userInput.value.trim()) {
-                e.preventDefault();
-                e.returnValue = '';
+    async loadPreviousConversation() {
+        if (!this.userId) return;
+
+        const conversationRef = ref(database, `users/${this.userId}/conversations`);
+        const recentConversationsQuery = query(conversationRef, orderByChild('timestamp'), limitToLast(10));
+
+        try {
+            const snapshot = await get(recentConversationsQuery);
+            if (snapshot.exists()) {
+                const conversations = [];
+                snapshot.forEach((childSnapshot) => {
+                    conversations.push(childSnapshot.val());
+                });
+                conversations.sort((a, b) => a.timestamp - b.timestamp);
+                
+                conversations.forEach(conv => {
+                    this.addMessage(conv.userInput, 'user');
+                    this.addMessage(conv.botResponse, 'bot');
+                });
             }
-        });
+        } catch (error) {
+            console.error('Error loading previous conversations:', error);
+            this.updateStatus('Failed to load previous conversations.', 'error');
+        }
     }
 
     updateStatus(message, type = '') {
@@ -372,32 +480,6 @@ class EnhancedChatbot {
     formatTime() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-
-    async loadPreviousConversation() {
-        if (!this.userId) return;
-
-        const conversationRef = ref(database, `users/${this.userId}/conversations`);
-        const recentConversationsQuery = query(conversationRef, orderByChild('timestamp'), limitToLast(10));
-
-        try {
-            const snapshot = await get(recentConversationsQuery);
-            if (snapshot.exists()) {
-                const conversations = [];
-                snapshot.forEach((childSnapshot) => {
-                    conversations.push(childSnapshot.val());
-                });
-                conversations.sort((a, b) => a.timestamp - b.timestamp);
-                
-                conversations.forEach(conv => {
-                    this.addMessage(conv.userInput, 'user');
-                    this.addMessage(conv.botResponse, 'bot');
-                });
-            }
-        } catch (error) {
-            console.error('Error loading previous conversations:', error);
-            this.updateStatus('Failed to load previous conversations.', 'error');
-        }
-    }
 }
 
 // Initialize the chatbot when the page loads
@@ -409,10 +491,12 @@ window.addEventListener('DOMContentLoaded', () => {
         window.chatbot = new EnhancedChatbot();
     } catch (error) {
         const status = document.getElementById('status');
-        status.textContent = 'Error: Failed to initialize chatbot. Please refresh the page.';
-        status.className = 'error';
+        if (status) {
+            status.textContent = 'Error: Failed to initialize chatbot. Please refresh the page.';
+            status.className = 'error';
+        }
         console.error('Initialization error:', error);
     }
 });
 
-const chatbot = new EnhancedChatbot();
+export default EnhancedChatbot;
