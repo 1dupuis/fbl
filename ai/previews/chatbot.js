@@ -1,9 +1,10 @@
-// Import Firebase modules
+// chatbot.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { 
     getAuth,
     onAuthStateChanged,
-    signOut
+    signOut,
+    signInAnonymously
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { 
     getDatabase,
@@ -16,42 +17,58 @@ import {
     equalTo,
     onValue,
     update,
-    remove
+    remove,
+    limitToLast
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
-//import { resetInactivityTimer } from '/background/access.js';
 
-// Initialize Firebase
 const firebaseConfig = {
-    apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
-    authDomain: "dupuis-lol.firebaseapp.com",
-    databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
-    projectId: "dupuis-lol",
-    storageBucket: "dupuis-lol.appspot.com",
-    messagingSenderId: "807402660080",
-    appId: "1:807402660080:web:545d4e1287f5803ebda235",
-    measurementId: "G-TR8JMF5FRY"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const database = getDatabase(app);
 
 class EnhancedChatbot {
     constructor() {
+        // Initialize Firebase
+        this.app = initializeApp(firebaseConfig);
+        this.auth = getAuth(this.app);
+        this.database = getDatabase(this.app);
+
+        // Neural Network Configuration
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [64, 32],
-            learningRate: 0.008,
+            hiddenLayers: [128, 64, 32],
+            learningRate: 0.01,
             activation: 'leaky-relu',
-            errorThresh: 0.003
+            errorThresh: 0.0025,
+            momentum: 0.9,
+            dropout: 0.1
         });
 
-        this.contextWindow = [];
-        this.maxContextLength = 6;
-        this.isTraining = false;
-        this.isInitialized = false;
-        this.userId = null;
-        this.userProfile = null;
+        // State Management
+        this.state = {
+            contextWindow: [],
+            maxContextLength: 10,
+            isTraining: false,
+            isInitialized: false,
+            userId: null,
+            userProfile: null,
+            conversationHistory: [],
+            trainingProgress: 0,
+            lastTrainingDate: null,
+            modelMetrics: {
+                accuracy: 0,
+                loss: 0,
+                trainingDuration: 0
+            },
+            typingSpeed: { min: 50, max: 100 }, // ms per character
+            maxResponseTime: 3000 // ms
+        };
 
+        // UI Elements
         this.elements = {
             userInput: null,
             sendBtn: null,
@@ -59,9 +76,16 @@ class EnhancedChatbot {
             typingIndicator: null,
             status: null,
             clearBtn: null,
+            feedbackBtns: null,
+            modelInfo: null
         };
 
-        // Delay initialization to ensure DOM is fully loaded
+        // Bind methods
+        this.handleUserInput = this.handleUserInput.bind(this);
+        this.handleKeyPress = this.handleKeyPress.bind(this);
+        this.handleFeedback = this.handleFeedback.bind(this);
+
+        // Initialize on DOM load
         window.addEventListener('DOMContentLoaded', () => {
             this.initializeElements();
             this.initialize().catch(this.handleError.bind(this));
@@ -70,349 +94,464 @@ class EnhancedChatbot {
 
     async initialize() {
         try {
-            this.updateStatus('Initializing...', 'loading');
-            await this.initializeFirebase();
+            this.updateStatus('Initializing system...', 'loading');
+            await this.initializeAuth();
             await this.loadUserProfile();
             await this.loadTrainingData();
-            await this.trainNetwork();
-            this.isInitialized = true;
-            this.updateStatus('Ready to chat!', 'success');
-            this.setInterfaceEnabled(true);
+            await this.loadConversationHistory();
+            await this.checkAndPerformTraining();
+            
             this.setupEventListeners();
-            this.loadPreviousConversation();
+            this.setupPeriodicTraining();
+            this.setupActivityMonitor();
+            
+            this.state.isInitialized = true;
+            this.updateStatus('Ready to chat!', 'success');
+            this.updateModelInfo();
+            
+            // Add welcome message
+            this.addMessage({
+                type: 'bot',
+                content: 'Hello! I'm an AI assistant ready to help. How can I assist you today?',
+                timestamp: Date.now()
+            });
         } catch (error) {
             throw new Error('Initialization failed: ' + error.message);
         }
     }
 
-    initializeElements() {
-        this.elements = {
-            userInput: document.getElementById('userInput'),
-            sendBtn: document.getElementById('sendBtn'),
-            chatWindow: document.getElementById('chatWindow'),
-            typingIndicator: document.querySelector('.typing-indicator'),
-            status: document.getElementById('status'),
-            clearBtn: document.getElementById('clearBtn'),
-        };
-
-        // Check if all required elements are present
-        const missingElements = Object.entries(this.elements)
-            .filter(([key, value]) => !value)
-            .map(([key]) => key);
-
-        if (missingElements.length > 0) {
-            throw new Error(`Missing DOM elements: ${missingElements.join(', ')}`);
-        }
-    }
-
-    async initializeFirebase() {
+    async initializeAuth() {
         return new Promise((resolve, reject) => {
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
-                unsubscribe(); // Unsubscribe to avoid memory leaks
+            onAuthStateChanged(this.auth, async (user) => {
                 if (user) {
-                    this.userId = user.uid;
+                    this.state.userId = user.uid;
                     resolve();
                 } else {
-                    //this.updateStatus('Please log in.', 'error');
-                    //reject(new Error('User not authenticated'));
+                    try {
+                        // Sign in anonymously if no user
+                        const userCredential = await signInAnonymously(this.auth);
+                        this.state.userId = userCredential.user.uid;
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
                 }
             });
         });
     }
 
     async loadUserProfile() {
-        if (!this.userId) throw new Error('User ID not set');
-        const userProfileRef = ref(database, `users/${this.userId}/profile`);
-        const snapshot = await get(userProfileRef);
+        if (!this.state.userId) return;
+
+        const profileRef = ref(this.database, `users/${this.state.userId}/profile`);
+        const snapshot = await get(profileRef);
+        
         if (snapshot.exists()) {
-            this.userProfile = snapshot.val();
+            this.state.userProfile = snapshot.val();
         } else {
-            // Initialize with default profile if none exists
-            this.userProfile = { name: 'User', preferences: {} };
-            await set(userProfileRef, this.userProfile);
+            // Initialize default profile
+            this.state.userProfile = {
+                created: Date.now(),
+                preferences: {
+                    theme: 'light',
+                    responseLength: 'medium',
+                    language: 'en'
+                },
+                metrics: {
+                    totalConversations: 0,
+                    totalMessages: 0,
+                    averageFeedbackScore: 0
+                }
+            };
+            await set(profileRef, this.state.userProfile);
         }
     }
 
     async loadTrainingData() {
-        const trainingDataRef = ref(database, 'trainingData');
+        const baseDataRef = ref(this.database, 'trainingData/base');
+        const userDataRef = ref(this.database, `users/${this.state.userId}/trainingData`);
+        
         try {
-            const snapshot = await get(trainingDataRef);
-            if (snapshot.exists()) {
-                this.trainingData = snapshot.val();
-            } else {
-                // Initialize with default data if none exists
-                this.trainingData = [
-                    { input: "hello", output: "Hi! How can I help you?" },
-                    { input: "how are you", output: "I'm here to assist you. What can I do for you today?" },
-                    { input: "what can you do", output: "I can answer questions, provide information, and help with various tasks. What do you need help with?" },
-                    { input: "bye", output: "Goodbye! Feel free to come back if you need any more assistance." },
-                    { input: "thanks", output: "You're welcome! Is there anything else I can help you with?" }
-                ];
-                await set(trainingDataRef, this.trainingData);
+            // Load base training data
+            const baseSnapshot = await get(baseDataRef);
+            let baseData = baseSnapshot.exists() ? baseSnapshot.val() : this.getDefaultTrainingData();
+            
+            // Load user-specific training data
+            const userSnapshot = await get(userDataRef);
+            let userData = userSnapshot.exists() ? userSnapshot.val() : [];
+            
+            // Combine and deduplicate training data
+            this.trainingData = this.deduplicateTrainingData([...baseData, ...userData]);
+            
+            // Save base data if it doesn't exist
+            if (!baseSnapshot.exists()) {
+                await set(baseDataRef, baseData);
             }
         } catch (error) {
             console.error('Error loading training data:', error);
-            // Fallback to default data if loading fails
-            this.trainingData = [
-                { input: "hello", output: "Hi! How can I help you?" },
-                { input: "how are you", output: "I'm here to assist you. What can I do for you today?" }
-            ];
+            this.trainingData = this.getDefaultTrainingData();
         }
     }
 
-    async trainNetwork() {
-        this.isTraining = true;
-        try {
-            await this.net.train(this.trainingData, {
-                iterations: 500,
-                errorThresh: 0.003,
-                log: true,
-                logPeriod: 1,
-                callback: stats => {
-                    this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
-                }
-            });
-        } catch (error) {
-            console.error('Training error:', error);
-            this.updateStatus('Error in training. Using fallback responses.', 'error');
-        } finally {
-            this.isTraining = false;
-        }
+    deduplicateTrainingData(data) {
+        const seen = new Set();
+        return data.filter(item => {
+            const key = `${item.input}|${item.output}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }
 
-    preprocessInput(text) {
-        return text.toLowerCase()
-            .replace(/[^\w\s?!.,]/g, '')
-            .trim();
-    }
-
-    async getResponse(userInput) {
-        const sanitizedInput = this.preprocessInput(userInput);
-        
-        // Add context to the input
-        const contextualInput = [...this.contextWindow, sanitizedInput].join(' ');
-        
-        try {
-            let response = await this.net.run(contextualInput);
-            
-            // If the response is empty or irrelevant, try without context
-            if (!response || response === "I'm not quite sure how to respond to that.") {
-                response = await this.net.run(sanitizedInput);
-            }
-            
-            const finalResponse = response || "I'm not quite sure how to respond to that. Could you rephrase?";
-            
-            // Update context window
-            this.contextWindow.push(sanitizedInput);
-            this.contextWindow = this.contextWindow.slice(-this.maxContextLength);
-            
-            // Save conversation to Firebase
-            await this.saveConversation(userInput, finalResponse);
-            
-            return finalResponse;
-        } catch (error) {
-            console.error('Response generation error:', error);
-            return "I'm having trouble processing that. Could you try saying it differently?";
-        }
-    }
-
-    async saveConversation(userInput, botResponse) {
-        if (!this.userId) return;
-
-        const conversationRef = ref(database, `users/${this.userId}/conversations`);
-        const newConversationRef = push(conversationRef);
-        try {
-            await set(newConversationRef, {
-                timestamp: Date.now(),
-                userInput: userInput,
-                botResponse: botResponse
-            });
-        } catch (error) {
-            console.error('Error saving conversation:', error);
-            // Optionally, notify the user that the conversation couldn't be saved
-        }
-    }
-
-    addMessage(text, sender) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', `${sender}-message`);
-        
-        const content = document.createElement('div');
-        content.classList.add('message-content');
-        content.textContent = text;
-        
-        const time = document.createElement('div');
-        time.classList.add('message-time');
-        time.textContent = this.formatTime();
-        
-        messageDiv.appendChild(content);
-        messageDiv.appendChild(time);
-        
-        this.elements.chatWindow.appendChild(messageDiv);
-        this.elements.chatWindow.scrollTop = this.elements.chatWindow.scrollHeight;
-    }
-
-    async clearChat() {
-        while (this.elements.chatWindow.firstChild) {
-            this.elements.chatWindow.removeChild(this.elements.chatWindow.firstChild);
-        }
-        this.addMessage("Chat cleared. How can I help you?", 'bot');
-        
-        // Clear conversation history in Firebase
-        if (this.userId) {
-            const conversationRef = ref(database, `users/${this.userId}/conversations`);
-            try {
-                await remove(conversationRef);
-            } catch (error) {
-                console.error('Error clearing conversation history:', error);
-                this.updateStatus('Failed to clear conversation history.', 'error');
-            }
-        }
+    getDefaultTrainingData() {
+        return [
+            { 
+                input: "hello", 
+                output: "Hi! How can I help you today?",
+                context: "greeting",
+                confidence: 1.0
+            },
+            {
+                input: "what can you do",
+                output: "I can help with various tasks including answering questions, providing explanations, and engaging in conversations. What would you like to explore?",
+                context: "capabilities",
+                confidence: 1.0
+            },
+            // Add more sophisticated default training data...
+        ];
     }
 
     async handleUserInput() {
-        const userInput = this.elements.userInput.value.trim();
+        const input = this.elements.userInput.value.trim();
         
-        if (!userInput || !this.isInitialized || this.isTraining) return;
-
-        this.elements.userInput.value = '';
-        this.setInterfaceEnabled(false);
-        
-        this.addMessage(userInput, 'user');
-        this.elements.typingIndicator.style.display = 'inline-flex';
+        if (!input || !this.state.isInitialized || this.state.isTraining) return;
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-            const response = await this.getResponse(userInput);
-            this.addMessage(response, 'bot');
+            // Clear input and disable interface
+            this.elements.userInput.value = '';
+            this.setInterfaceEnabled(false);
+            
+            // Add user message
+            this.addMessage({
+                type: 'user',
+                content: input,
+                timestamp: Date.now()
+            });
+
+            // Show typing indicator
+            this.showTypingIndicator();
+
+            // Generate and display response
+            const response = await this.getResponse(input);
+            
+            // Calculate realistic typing delay
+            const delay = this.calculateTypingDelay(response);
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Hide typing indicator and add response
+            this.hideTypingIndicator();
+            this.addMessage({
+                type: 'bot',
+                content: response,
+                timestamp: Date.now()
+            });
+
+            // Update metrics
+            await this.updateConversationMetrics(input, response);
         } catch (error) {
-            this.handleError('Failed to generate response. Please try again.');
-            this.addMessage("I apologize, but I'm having trouble right now. Please try again.", 'bot');
+            this.handleError(error);
         } finally {
-            this.elements.typingIndicator.style.display = 'none';
             this.setInterfaceEnabled(true);
             this.elements.userInput.focus();
         }
     }
 
-    setupEventListeners() {
-        if (this.elements.sendBtn) {
-            this.elements.sendBtn.addEventListener('click', () => this.handleUserInput());
-        }
-
-        if (this.elements.userInput) {
-            this.elements.userInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.handleUserInput();
-                }
-            });
-
-            this.elements.userInput.addEventListener('focus', () => {
-                if (this.elements.status && this.elements.status.classList.contains('error')) {
-                    this.updateStatus('Ready to chat!', 'success');
-                }
-            });
-        }
-
-        if (this.elements.clearBtn) {
-            this.elements.clearBtn.addEventListener('click', () => this.clearChat());
-        }
-
-        window.addEventListener('online', () => {
-            if (this.isInitialized) {
-                this.updateStatus('Connection restored!', 'success');
-                setTimeout(() => {
-                    if (this.isInitialized) {
-                        this.updateStatus('Ready to chat!', 'success');
-                    }
-                }, 2000);
-            }
-        });
-
-        window.addEventListener('offline', () => {
-            this.updateStatus('Connection lost. Please check your internet connection.', 'error');
-        });
-
-        window.addEventListener('beforeunload', (e) => {
-            if (this.elements.userInput && this.elements.userInput.value.trim()) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
+    calculateTypingDelay(text) {
+        const { min, max } = this.state.typingSpeed;
+        const baseDelay = text.length * (Math.random() * (max - min) + min);
+        return Math.min(baseDelay, this.state.maxResponseTime);
     }
 
-    updateStatus(message, type = '') {
-        if (this.elements.status) {
-            this.elements.status.textContent = message;
-            this.elements.status.className = type;
-        } else {
-            console.warn('Status element not found. Status update:', message, type);
-        }
-    }
-
-    setInterfaceEnabled(enabled) {
-        if (this.elements.userInput) {
-            this.elements.userInput.disabled = !enabled;
-        }
-        if (this.elements.sendBtn) {
-            this.elements.sendBtn.disabled = !enabled;
-        }
-        if (enabled && this.elements.userInput) {
-            this.elements.userInput.focus();
-        }
-    }
-
-    handleError(error) {
-        console.error('Chatbot error:', error);
-        this.updateStatus(typeof error === 'string' ? error : 'An error occurred. Please refresh the page.', 'error');
-        this.setInterfaceEnabled(false);
-    }
-
-    formatTime() {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    async loadPreviousConversation() {
-        if (!this.userId) return;
-
-        const conversationRef = ref(database, `users/${this.userId}/conversations`);
-        const recentConversationsQuery = query(conversationRef, orderByChild('timestamp'), limitToLast(10));
-
+    async getResponse(userInput) {
+        const sanitizedInput = this.preprocessInput(userInput);
+        const contextualInput = this.buildContextualInput(sanitizedInput);
+        
         try {
-            const snapshot = await get(recentConversationsQuery);
-            if (snapshot.exists()) {
-                const conversations = [];
-                snapshot.forEach((childSnapshot) => {
-                    conversations.push(childSnapshot.val());
-                });
-                conversations.sort((a, b) => a.timestamp - b.timestamp);
-                
-                conversations.forEach(conv => {
-                    this.addMessage(conv.userInput, 'user');
-                    this.addMessage(conv.botResponse, 'bot');
-                });
-            }
+            // Get response from neural network
+            let response = await this.net.run(contextualInput);
+            
+            // Validate and enhance response
+            response = await this.validateAndEnhanceResponse(response, sanitizedInput);
+            
+            // Update conversation context
+            await this.updateConversationContext(sanitizedInput, response);
+            
+            return response;
         } catch (error) {
-            console.error('Error loading previous conversations:', error);
-            this.updateStatus('Failed to load previous conversations.', 'error');
+            console.error('Response generation error:', error);
+            return this.getFallbackResponse(sanitizedInput);
         }
+    }
+
+    async validateAndEnhanceResponse(response, input) {
+        if (!this.isValidResponse(response)) {
+            response = await this.net.run(input);
+        }
+        
+        if (!this.isValidResponse(response)) {
+            return this.getFallbackResponse(input);
+        }
+
+        // Enhance response with context awareness
+        return this.enhanceResponse(response);
+    }
+
+    enhanceResponse(response) {
+        // Add conversation markers if needed
+        if (!response.endsWith('?') && !response.endsWith('.') && !response.endsWith('!')) {
+            response += '.';
+        }
+        
+        // Ensure proper capitalization
+        return response.charAt(0).toUpperCase() + response.slice(1);
+    }
+
+    async trainNetwork() {
+        this.state.isTraining = true;
+        const startTime = Date.now();
+        
+        try {
+            const trainingResult = await this.net.train(this.trainingData, {
+                iterations: 1000,
+                errorThresh: 0.0025,
+                log: true,
+                logPeriod: 10,
+                callback: stats => {
+                    this.trainingProgress = (stats.iterations / 1000) * 100;
+                    this.updateStatus(`Training: ${Math.round(this.trainingProgress)}% complete`, 'loading');
+                    this.updateModelInfo({
+                        accuracy: (1 - stats.error) * 100,
+                        loss: stats.error
+                    });
+                }
+            });
+    
+            this.state.modelMetrics = {
+                accuracy: (1 - trainingResult.error) * 100,
+                loss: trainingResult.error,
+                trainingDuration: Date.now() - startTime
+            };
+    
+            await this.saveModelMetrics();
+            this.state.lastTrainingDate = new Date();
+            
+        } catch (error) {
+            console.error('Training error:', error);
+            this.updateStatus('Training encountered an error. Using backup responses.', 'error');
+        } finally {
+            this.state.isTraining = false;
+        }
+    }
+    
+    setupEventListeners() {
+        // Chat input handling
+        this.elements.sendBtn.addEventListener('click', this.handleUserInput);
+        this.elements.userInput.addEventListener('keypress', this.handleKeyPress);
+        
+        // Toolbar buttons
+        this.elements.clearBtn.addEventListener('click', () => this.clearChat());
+        document.getElementById('toggleTheme').addEventListener('click', () => this.toggleTheme());
+        document.getElementById('exportChat').addEventListener('click', () => this.exportChat());
+        
+        // Feedback buttons
+        this.elements.chatWindow.addEventListener('click', (e) => {
+            if (e.target.classList.contains('feedback-btn')) {
+                const messageEl = e.target.closest('.message');
+                const value = e.target.dataset.value;
+                if (messageEl && value) {
+                    this.handleFeedback(messageEl.dataset.messageId, value);
+                }
+            }
+        });
+    
+        // Window events
+        window.addEventListener('online', () => this.handleConnectivityChange(true));
+        window.addEventListener('offline', () => this.handleConnectivityChange(false));
+        window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+}
+
+async handleFeedback(messageId, value) {
+    if (!this.state.userId || !messageId) return;
+
+    try {
+        const feedbackRef = ref(this.database, `users/${this.state.userId}/feedback/${messageId}`);
+        await set(feedbackRef, {
+            value,
+            timestamp: Date.now()
+        });
+
+        // Update message UI
+        const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageEl) {
+            const buttons = messageEl.querySelectorAll('.feedback-btn');
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.value === value);
+            });
+        }
+
+        // Use feedback for learning
+        await this.processFeedback(messageId, value);
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+        this.updateStatus('Failed to save feedback', 'error');
     }
 }
 
-// Initialize the chatbot when the page loads
-window.addEventListener('DOMContentLoaded', () => {
+async processFeedback(messageId, value) {
     try {
-        if (typeof brain === 'undefined') {
-            throw new Error('Brain.js library not loaded');
+        // Get message content
+        const messageRef = ref(this.database, `users/${this.state.userId}/conversations/${messageId}`);
+        const snapshot = await get(messageRef);
+        
+        if (snapshot.exists()) {
+            const message = snapshot.val();
+            
+            // If positive feedback, add to training data
+            if (value === 'positive') {
+                await this.updateTrainingData([{
+                    input: message.userInput,
+                    output: message.botResponse,
+                    context: message.context || 'general',
+                    confidence: 1.0
+                }]);
+            }
+            
+            // Update metrics
+            await this.updateUserMetrics(value);
         }
-        window.chatbot = new EnhancedChatbot();
     } catch (error) {
-        const status = document.getElementById('status');
-        status.textContent = 'Error: Failed to initialize chatbot. Please refresh the page.';
-        status.className = 'error';
-        console.error('Initialization error:', error);
+        console.error('Error processing feedback:', error);
     }
-});
+}
 
+async updateUserMetrics(feedbackValue) {
+    if (!this.state.userId) return;
+    
+    const metricsRef = ref(this.database, `users/${this.state.userId}/metrics`);
+    
+    try {
+        const snapshot = await get(metricsRef);
+        const currentMetrics = snapshot.exists() ? snapshot.val() : {
+            positiveCount: 0,
+            negativeCount: 0,
+            totalInteractions: 0,
+            lastInteraction: null
+        };
+
+        const updates = {
+            ...currentMetrics,
+            totalInteractions: currentMetrics.totalInteractions + 1,
+            lastInteraction: Date.now()
+        };
+
+        if (feedbackValue === 'positive') {
+            updates.positiveCount = (currentMetrics.positiveCount || 0) + 1;
+        } else if (feedbackValue === 'negative') {
+            updates.negativeCount = (currentMetrics.negativeCount || 0) + 1;
+        }
+
+        updates.satisfactionRate = (updates.positiveCount / updates.totalInteractions) * 100;
+
+        await set(metricsRef, updates);
+        this.updateModelInfo({
+            feedbackCount: updates.totalInteractions,
+            satisfaction: Math.round(updates.satisfactionRate)
+        });
+    } catch (error) {
+        console.error('Error updating user metrics:', error);
+    }
+}
+
+updateModelInfo(metrics = {}) {
+    const accuracyMetric = document.getElementById('accuracyMetric');
+    const trainingStatus = document.getElementById('trainingStatus');
+    const conversationCount = document.getElementById('conversationCount');
+
+    if (metrics.accuracy !== undefined && accuracyMetric) {
+        accuracyMetric.textContent = `${Math.round(metrics.accuracy)}%`;
+    }
+
+    if (metrics.status !== undefined && trainingStatus) {
+        trainingStatus.textContent = metrics.status;
+    }
+
+    if (metrics.feedbackCount !== undefined && conversationCount) {
+        conversationCount.textContent = metrics.feedbackCount;
+    }
+}
+
+toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+    const isDark = document.body.classList.contains('dark-theme');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+async exportChat() {
+    if (!this.userId) return;
+
+    try {
+        const conversationsRef = ref(this.database, `users/${this.userId}/conversations`);
+        const snapshot = await get(conversationsRef);
+        
+        if (snapshot.exists()) {
+            const conversations = [];
+            snapshot.forEach(childSnapshot => {
+                conversations.push(childSnapshot.val());
+            });
+
+            const exportData = {
+                conversations,
+                exportDate: new Date().toISOString(),
+                userMetrics: this.state.modelMetrics
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat-export-${new Date().toISOString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    } catch (error) {
+        console.error('Error exporting chat:', error);
+        this.updateStatus('Failed to export chat history', 'error');
+    }
+}
+
+handleConnectivityChange(isOnline) {
+    if (isOnline) {
+        this.updateStatus('Connection restored!', 'success');
+        setTimeout(() => {
+            if (this.isInitialized) {
+                this.updateStatus('Ready to chat!', 'success');
+            }
+        }, 2000);
+    } else {
+        this.updateStatus('Connection lost. Please check your internet connection.', 'error');
+    }
+}
+
+handleBeforeUnload(e) {
+    if (this.elements.userInput && this.elements.userInput.value.trim()) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+}
+}
+
+// Initialize chatbot
 const chatbot = new EnhancedChatbot();
