@@ -113,7 +113,7 @@ class EnhancedChatbot {
             // Add welcome message
             this.addMessage({
                 type: 'bot',
-                content: 'Hello! I'm an AI assistant ready to help. How can I assist you today?',
+                content: 'Hello! I\'m an AI assistant ready to help. How can I assist you today?',
                 timestamp: Date.now()
             });
         } catch (error) {
