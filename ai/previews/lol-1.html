@@ -4,8 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LOL1 Preview</title>
-    <script src="https://unpkg.com/brain.js"></script>
-    <script src="chatbot-ws.js" type="module"></script>
+    <!-- Add brain.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/brain.js/2.0.0-beta.23/brain-browser.min.js"></script>
+    <!-- Import the chatbot module -->
+    <script type="module">
+        import EnhancedChatbot from './chatbot-ws.js';
+        window.EnhancedChatbot = EnhancedChatbot;
+    </script>
     <style>
         :root {
             --primary-color: #3b82f6;
@@ -241,7 +246,6 @@
             color: var(--text);
         }
 
-        /* Mobile Responsiveness */
         @media (max-width: 640px) {
             .container {
                 margin: 0;
@@ -263,10 +267,7 @@
         </div>
         
         <div id="chatWindow">
-            <div class="message bot-message">
-                <div class="message-content">Hello! I'm an AI chatbot ready to help you. How can I assist you today?</div>
-                <div class="message-time"></div>
-            </div>
+            <!-- Initial message will be added by the chatbot -->
         </div>
 
         <div class="typing-indicator">
@@ -279,7 +280,7 @@
             <button class="clear-btn" id="clearBtn">Clear Chat</button>
             <div id="inputContainer">
                 <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off" />
-                <button id="sendBtn">Send</button>
+                <button id="sendBtn" type="button">Send</button>
             </div>
             <div id="status">Initializing...</div>
         </div>
