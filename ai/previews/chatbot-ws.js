@@ -1,4 +1,3 @@
-// Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { 
     getAuth,
@@ -30,7 +29,6 @@ const firebaseConfig = {
     appId: "1:807402660080:web:545d4e1287f5803ebda235",
     measurementId: "G-TR8JMF5FRY"
 };
-
 class EnhancedChatbot {
     constructor() {
         // Enhanced LSTM configuration
@@ -44,6 +42,8 @@ class EnhancedChatbot {
             beta2: 0.999
         });
 
+        // Add training log element
+        this.trainingLogElement = null;
         this.contextWindow = [];
         this.maxContextLength = 8;
         this.isTraining = false;
@@ -86,6 +86,24 @@ class EnhancedChatbot {
             status: document.getElementById('status'),
             clearBtn: document.getElementById('clearBtn'),
         };
+
+        // Create and append training log element
+        this.trainingLogElement = document.createElement('div');
+        this.trainingLogElement.id = 'trainingLog';
+        this.trainingLogElement.style.cssText = `
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+        `;
+        document.body.appendChild(this.trainingLogElement);
 
         const missingElements = Object.entries(this.elements)
             .filter(([key, value]) => !value)
@@ -236,17 +254,27 @@ class EnhancedChatbot {
 
     async enhancedTraining() {
         this.isTraining = true;
+        this.trainingLogElement.innerHTML = ''; // Clear previous logs
+        
         try {
             const combinedData = [
                 ...this.trainingData,
                 ...this.generateWebDataTrainingPairs()
             ];
 
+            let iteration = 0;
             await this.net.train(combinedData, {
                 iterations: 250,
                 errorThresh: 0.0025,
-                log: true,
-                logPeriod: 10,
+                log: (stats) => {
+                    iteration++;
+                    this.logTraining({
+                        iteration,
+                        error: stats.error,
+                        iterations: stats.iterations
+                    });
+                },
+                logPeriod: 1, // Log every iteration
                 learningRate: 0.01,
                 momentum: 0.9,
                 callback: stats => {
@@ -257,9 +285,27 @@ class EnhancedChatbot {
         } catch (error) {
             console.error('Training error:', error);
             this.updateStatus('Error in training. Using fallback responses.', 'error');
+            this.logTraining({ error: 'Training failed: ' + error.message });
         } finally {
             this.isTraining = false;
         }
+    }
+
+    logTraining(data) {
+        if (!this.trainingLogElement) return;
+
+        const logEntry = document.createElement('div');
+        if (data.error && typeof data.error === 'string') {
+            // Error message
+            logEntry.style.color = '#ff0000';
+            logEntry.textContent = data.error;
+        } else {
+            // Training progress
+            logEntry.textContent = `Iteration ${data.iteration}: Error ${data.error.toFixed(6)}`;
+        }
+        
+        this.trainingLogElement.appendChild(logEntry);
+        this.trainingLogElement.scrollTop = this.trainingLogElement.scrollHeight;
     }
 
     generateWebDataTrainingPairs() {
