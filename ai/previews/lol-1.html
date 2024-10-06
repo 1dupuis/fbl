@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LOL1 Preview</title>
-    <!-- Add brain.js from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/brain.js/2.0.0-beta.23/brain-browser.min.js"></script>
-    <!-- Import the chatbot module -->
-    <script type="module">
-        import EnhancedChatbot from './chatbot-ws.js';
-        window.EnhancedChatbot = EnhancedChatbot;
-    </script>
+    <!-- Fix: Using unpkg for brain.js as specified in original code -->
+    <script src="https://unpkg.com/brain.js"></script>
+    <!-- Fix: Load Firebase SDKs before our module -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js" type="module"></script>
+    <!-- Load our chatbot module -->
+    <script src="chatbot-ws.js" type="module"></script>
     <style>
         :root {
             --primary-color: #3b82f6;
@@ -279,8 +280,8 @@
         <div class="controls">
             <button class="clear-btn" id="clearBtn">Clear Chat</button>
             <div id="inputContainer">
-                <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off" />
-                <button id="sendBtn" type="button">Send</button>
+                <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off" disabled />
+                <button id="sendBtn" type="button" disabled>Send</button>
             </div>
             <div id="status">Initializing...</div>
         </div>
