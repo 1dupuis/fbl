@@ -21,369 +21,652 @@ import {
 
 class EnhancedChatbot {
     constructor() {
+        // Firebase configuration
         this.firebaseConfig = {
-    apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
-    authDomain: "dupuis-lol.firebaseapp.com",
-    databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
-    projectId: "dupuis-lol",
-    storageBucket: "dupuis-lol.appspot.com",
-    messagingSenderId: "807402660080",
-    appId: "1:807402660080:web:545d4e1287f5803ebda235",
-    measurementId: "G-TR8JMF5FRY"
-};
+            apiKey: "AIzaSyAToB2gXmzCK4t-1dW5urnGG87gbK6MxR8",
+            authDomain: "dupuis-lol.firebaseapp.com",
+            databaseURL: "https://dupuis-lol-default-rtdb.firebaseio.com",
+            projectId: "dupuis-lol",
+            storageBucket: "dupuis-lol.appspot.com",
+            messagingSenderId: "807402660080",
+            appId: "1:807402660080:web:545d4e1287f5803ebda235",
+            measurementId: "G-TR8JMF5FRY"
+        };
 
-        // Enhanced model configuration
-        this.model = new brain.recurrent.LSTM({
-            hiddenLayers: [256, 128], // Increased layer size
-            learningRate: 0.005,
+        // Enhanced LSTM configuration with improved architecture
+        this.net = new brain.recurrent.LSTM({
+            hiddenLayers: [512, 256, 128], // Deeper network
+            learningRate: 0.003,
             activation: 'leaky-relu',
-            errorThresh: 0.001,
-            momentum: 0.9,
+            errorThresh: 0.0005,
+            momentum: 0.95,
             beta1: 0.9,
-            beta2: 0.999
+            beta2: 0.999,
+            dropout: 0.1 // Added dropout for better generalization
         });
 
-        // Memory and context management
-        this.conversationMemory = new Map();
+        // System state
+        this.isInitialized = false;
+        this.isTraining = false;
+        this.userId = null;
+        this.userProfile = null;
+
+        // Enhanced memory management
         this.contextWindow = [];
-        this.maxContextLength = 10;
+        this.maxContextLength = 15; // Increased context window
+        this.conversationMemory = new Map();
         this.knowledgeBase = new Map();
+        this.webData = new Map();
+
+        // Timing and rate limiting
         this.lastTrainingTime = null;
         this.trainingInterval = 1800000; // 30 minutes
-
-        // Wikipedia API configuration
-        this.wikiApiEndpoint = 'https://en.wikipedia.org/w/api.php';
-        this.maxConcurrentRequests = 3;
+        this.lastScrapingTime = null;
+        this.scrapingInterval = 3600000; // 1 hour
         this.requestQueue = [];
-        this.isProcessingQueue = false;
+        this.maxConcurrentRequests = 3;
+
+        // Training monitoring
+        this.trainingLogElement = null;
+        this.trainingStats = {
+            iterations: 0,
+            errorHistory: [],
+            startTime: null,
+            endTime: null
+        };
 
         // Initialize components
-        this.initializeComponents();
+        this.initializeApp();
     }
 
-    async initializeComponents() {
+    async initializeApp() {
         try {
-            await this.initializeFirebase();
-            await this.initializeUI();
-            await this.loadKnowledgeBase();
-            await this.initializeModel();
-            this.setupEventListeners();
+            const app = initializeApp(this.firebaseConfig);
+            this.auth = getAuth(app);
+            this.database = getDatabase(app);
+            
+            // Initialize UI and event listeners after DOM loads
+            window.addEventListener('DOMContentLoaded', () => {
+                this.initializeElements();
+                this.initialize().catch(this.handleError.bind(this));
+            });
+
+            // Setup training log
+            this.setupTrainingLog();
+            
+            // Initialize advanced features
+            await this.initializeAdvancedFeatures();
         } catch (error) {
             console.error('Initialization error:', error);
             this.handleError(error);
         }
     }
 
-    async initializeFirebase() {
-        const app = initializeApp(this.firebaseConfig);
-        this.auth = getAuth(app);
-        this.db = getDatabase(app);
+    async initializeAdvancedFeatures() {
+        // Initialize advanced ML features
+        await this.initializeNLP();
+        await this.initializeEntityRecognition();
+        await this.initializeSentimentAnalysis();
         
-        return new Promise((resolve, reject) => {
-            onAuthStateChanged(this.auth, user => {
-                this.userId = user?.uid;
-                resolve();
-            });
-        });
+        // Setup periodic tasks
+        this.setupPeriodicTraining();
+        this.setupPeriodicDataCollection();
     }
 
-    async initializeUI() {
-        this.ui = {
-            chatWindow: document.getElementById('chatWindow'),
+    initializeElements() {
+        // Enhanced UI elements initialization
+        this.elements = {
             userInput: document.getElementById('userInput'),
-            sendButton: document.getElementById('sendBtn'),
-            clearButton: document.getElementById('clearBtn'),
-            statusIndicator: document.getElementById('status'),
-            typingIndicator: document.querySelector('.typing-indicator')
+            sendBtn: document.getElementById('sendBtn'),
+            chatWindow: document.getElementById('chatWindow'),
+            typingIndicator: document.querySelector('.typing-indicator'),
+            status: document.getElementById('status'),
+            clearBtn: document.getElementById('clearBtn'),
+            trainingProgress: document.getElementById('trainingProgress'),
+            confidenceIndicator: document.getElementById('confidenceIndicator')
         };
 
-        if (!Object.values(this.ui).every(element => element)) {
-            throw new Error('Missing UI elements');
+        // Validate all elements exist
+        const missingElements = Object.entries(this.elements)
+            .filter(([key, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingElements.length > 0) {
+            throw new Error(`Missing DOM elements: ${missingElements.join(', ')}`);
+        }
+
+        // Initialize advanced UI features
+        this.initializeAdvancedUI();
+    }
+
+    async initialize() {
+        try {
+            this.updateStatus('Initializing...', 'loading');
+            
+            // Enhanced initialization sequence
+            await this.initializeFirebase();
+            await this.loadUserProfile();
+            await this.loadTrainingData();
+            await this.enhancedTraining();
+            await this.initialWebScrape();
+            
+            // Initialize advanced features
+            await this.initializeNLP();
+            await this.initializeEntityRecognition();
+            await this.initializeSentimentAnalysis();
+            
+            this.isInitialized = true;
+            this.updateStatus('Ready to chat!', 'success');
+            this.setInterfaceEnabled(true);
+            this.setupEventListeners();
+            this.loadPreviousConversation();
+            
+            // Start background processes
+            this.startBackgroundProcesses();
+        } catch (error) {
+            throw new Error('Initialization failed: ' + error.message);
         }
     }
 
-    async loadKnowledgeBase() {
-        if (!this.userId) return;
+    async initializeNLP() {
+        // Initialize NLP components
+        this.nlp = {
+            tokenizer: new natural.WordTokenizer(),
+            stemmer: natural.PorterStemmer,
+            classifier: new natural.BayesClassifier()
+        };
 
-        const knowledgeRef = ref(this.db, `users/${this.userId}/knowledge`);
-        const snapshot = await get(knowledgeRef);
+        // Train classifier with initial data
+        await this.trainClassifier();
+    }
+
+    async initializeEntityRecognition() {
+        // Initialize named entity recognition
+        this.ner = {
+            model: await this.loadNERModel(),
+            tags: new Set(['PERSON', 'ORG', 'LOC', 'DATE']),
+            cache: new Map()
+        };
+    }
+
+    async initializeSentimentAnalysis() {
+        // Initialize sentiment analysis
+        this.sentiment = new natural.SentimentAnalyzer(
+            'English', 
+            natural.PorterStemmer, 
+            'afinn'
+        );
+    }
+
+    async loadUserProfile() {
+        if (!this.userId) return;
+        
+        const userProfileRef = ref(this.database, `users/${this.userId}/profile`);
+        const snapshot = await get(userProfileRef);
         
         if (snapshot.exists()) {
-            const data = snapshot.val();
-            Object.entries(data).forEach(([key, value]) => {
-                this.knowledgeBase.set(key, value);
-            });
+            this.userProfile = snapshot.val();
+            await this.enhanceUserProfile();
+        } else {
+            this.userProfile = await this.createInitialProfile();
+            await set(userProfileRef, this.userProfile);
         }
     }
 
-    async initializeModel() {
+    async enhanceUserProfile() {
+        // Analyze user preferences and behavior
+        const conversationHistory = await this.getConversationHistory();
+        const preferences = this.analyzeUserPreferences(conversationHistory);
+        const interactionPatterns = this.analyzeInteractionPatterns(conversationHistory);
+        
+        // Update profile with enhanced data
+        this.userProfile = {
+            ...this.userProfile,
+            preferences,
+            interactionPatterns,
+            lastUpdated: Date.now()
+        };
+        
+        // Save enhanced profile
+        const userProfileRef = ref(this.database, `users/${this.userId}/profile`);
+        await update(userProfileRef, this.userProfile);
+    }
+
+    async loadTrainingData() {
+        const trainingDataRef = ref(this.database, 'trainingData');
         try {
-            const trainingData = await this.generateTrainingData();
-            await this.trainModel(trainingData);
+            const snapshot = await get(trainingDataRef);
+            if (snapshot.exists()) {
+                this.trainingData = snapshot.val();
+                // Enhance training data with metadata
+                this.trainingData = this.enhanceTrainingData(this.trainingData);
+            } else {
+                this.trainingData = await this.createEnhancedTrainingData();
+                await set(trainingDataRef, this.trainingData);
+            }
+        } catch (error) {
+            console.error('Error loading training data:', error);
+            this.trainingData = await this.createEnhancedTrainingData();
+        }
+    }
+
+    async enhancedTraining() {
+        this.isTraining = true;
+        this.trainingStats.startTime = Date.now();
+        this.clearTrainingLog();
+
+        try {
+            // Prepare enhanced training data
+            const baseData = this.trainingData;
+            const webData = await this.getEnhancedWebData();
+            const userSpecificData = await this.getUserSpecificTrainingData();
+            
+            const combinedData = [
+                ...baseData,
+                ...webData,
+                ...userSpecificData
+            ];
+
+            // Advanced training configuration
+            const config = {
+                iterations: 1000,
+                errorThresh: 0.0005,
+                log: stats => this.logTrainingProgress(stats),
+                logPeriod: 1,
+                learningRate: 0.003,
+                momentum: 0.95,
+                callback: stats => this.handleTrainingCallback(stats)
+            };
+
+            // Perform training with progress monitoring
+            await this.trainModelWithProgress(combinedData, config);
+
+            this.trainingStats.endTime = Date.now();
             this.lastTrainingTime = Date.now();
+            
+            // Save training results
+            await this.saveTrainingResults();
+            
         } catch (error) {
-            console.error('Model initialization error:', error);
+            console.error('Training error:', error);
+            this.logTrainingError(error);
             throw error;
+        } finally {
+            this.isTraining = false;
         }
     }
 
-    async generateTrainingData() {
-        const baseTrainingData = this.getDefaultTrainingData();
-        const wikiTrainingData = await this.generateWikiTrainingData();
-        const userTrainingData = Array.from(this.knowledgeBase.values());
-
-        return [...baseTrainingData, ...wikiTrainingData, ...userTrainingData];
-    }
-
-    getDefaultTrainingData() {
-        return [
-            { input: "hello", output: "Hello! How can I assist you today?" },
-            { input: "how are you", output: "I'm functioning well and ready to help! What can I do for you?" },
-            { input: "bye", output: "Goodbye! Feel free to return if you need assistance." }
-        ];
-    }
-
-    async generateWikiTrainingData() {
-        const topics = ['artificial intelligence', 'machine learning', 'neural networks', 'deep learning'];
-        const trainingData = [];
-
-        for (const topic of topics) {
-            const wikiData = await this.fetchWikipediaData(topic);
-            if (wikiData) {
-                trainingData.push({
-                    input: `what is ${topic}?`,
-                    output: wikiData.summary
-                });
-
-                // Generate additional training pairs from content
-                const sentences = wikiData.content.split(/[.!?]+/).filter(s => s.trim());
-                for (let i = 0; i < sentences.length - 1; i++) {
-                    trainingData.push({
-                        input: sentences[i].trim(),
-                        output: sentences[i + 1].trim()
-                    });
-                }
-            }
-        }
-
-        return trainingData;
-    }
-
-    async fetchWikipediaData(topic) {
-        const params = new URLSearchParams({
-            action: 'query',
-            format: 'json',
-            prop: 'extracts',
-            exintro: 'true',
-            explaintext: 'true',
-            titles: topic,
-            origin: '*'
-        });
-
-        try {
-            const response = await fetch(`${this.wikiApiEndpoint}?${params}`);
-            const data = await response.json();
-            const pages = data.query.pages;
-            const pageId = Object.keys(pages)[0];
-            const extract = pages[pageId].extract;
-
-            if (extract) {
-                return {
-                    summary: extract.split('\n')[0],
-                    content: extract
-                };
-            }
-        } catch (error) {
-            console.error(`Error fetching Wikipedia data for ${topic}:`, error);
-            return null;
-        }
-    }
-
-    async trainModel(trainingData) {
+    async trainModelWithProgress(data, config) {
         return new Promise((resolve, reject) => {
             try {
-                let iteration = 0;
-                const trainingConfig = {
-                    iterations: 1000,
-                    errorThresh: 0.001,
-                    log: stats => {
-                        iteration++;
-                        if (iteration % 100 === 0) {
-                            this.updateStatus(`Training: ${iteration}/1000 (Error: ${stats.error.toFixed(6)})`);
+                const batchSize = 50;
+                let currentBatch = 0;
+                const totalBatches = Math.ceil(data.length / batchSize);
+
+                const trainBatch = async () => {
+                    if (currentBatch >= totalBatches) {
+                        resolve();
+                        return;
+                    }
+
+                    const start = currentBatch * batchSize;
+                    const end = Math.min(start + batchSize, data.length);
+                    const batch = data.slice(start, end);
+
+                    await this.net.train(batch, {
+                        ...config,
+                        iterations: Math.floor(config.iterations / totalBatches),
+                        callback: stats => {
+                            const progress = (currentBatch / totalBatches) * 100;
+                            this.updateTrainingProgress(progress, stats);
+                            return config.callback(stats);
                         }
-                    },
-                    logPeriod: 100
+                    });
+
+                    currentBatch++;
+                    setTimeout(trainBatch, 0); // Allow UI updates
                 };
 
-                this.model.train(trainingData, trainingConfig);
-                resolve();
+                trainBatch();
             } catch (error) {
                 reject(error);
             }
         });
     }
 
-    async processUserInput(input) {
-        const sanitizedInput = this.sanitizeInput(input);
-        this.updateContext(sanitizedInput);
+    async getEnhancedWebData() {
+        const topics = new Set();
+        
+        // Extract topics from conversation history
+        const conversations = await this.getConversationHistory();
+        conversations.forEach(conv => {
+            const extracted = this.extractTopics(conv.userInput);
+            extracted.forEach(topic => topics.add(topic));
+        });
+
+        // Get Wikipedia data for each topic
+        const webData = [];
+        for (const topic of topics) {
+            const wikiData = await this.fetchWikipediaData(topic);
+            if (wikiData) {
+                webData.push(...this.generateTrainingPairsFromWiki(wikiData));
+            }
+        }
+
+        return webData;
+    }
+
+    async fetchWikipediaData(topic) {
+        // Check cache first
+        if (this.webData.has(topic) && 
+            Date.now() - this.webData.get(topic).timestamp < this.scrapingInterval) {
+            return this.webData.get(topic).data;
+        }
+
+        // Rate limiting
+        await this.waitForRequestSlot();
+
+        const params = new URLSearchParams({
+            action: 'query',
+            format: 'json',
+            prop: 'extracts|categories|links',
+            exintro: 1,
+            explaintext: 1,
+            exsectionformat: 'wiki',
+            cllimit: 10,
+            titles: topic,
+            origin: '*'
+        });
 
         try {
-            // Generate response using the trained model
-            const baseResponse = await this.model.run(sanitizedInput);
-            
-            // Enhance response with Wikipedia data if needed
-            const enhancedResponse = await this.enhanceResponseWithWikiData(sanitizedInput, baseResponse);
-            
-            // Save conversation to Firebase
-            await this.saveConversation(input, enhancedResponse);
-            
-            return enhancedResponse;
+            const response = await fetch(`https://en.wikipedia.org/w/api.php?${params}`);
+            if (!response.ok) throw new Error('Wikipedia API request failed');
+
+            const data = await response.json();
+            const pages = data.query.pages;
+            const pageId = Object.keys(pages)[0];
+            const page = pages[pageId];
+
+            if (page.missing) return null;
+
+            const processedData = {
+                title: page.title,
+                extract: page.extract,
+                categories: page.categories?.map(c => c.title) || [],
+                links: page.links?.map(l => l.title) || [],
+                summary: this.generateSummary(page.extract),
+                timestamp: Date.now()
+            };
+
+            // Cache the data
+            this.webData.set(topic, {
+                data: processedData,
+                timestamp: Date.now()
+            });
+
+            return processedData;
         } catch (error) {
-            console.error('Error processing input:', error);
-            return "I apologize, but I'm having trouble processing that request. Could you try rephrasing?";
+            console.error(`Error fetching Wikipedia data for ${topic}:`, error);
+            return null;
         }
     }
 
-    async enhanceResponseWithWikiData(input, baseResponse) {
-        const keywords = this.extractKeywords(input);
-        let enhancedResponse = baseResponse;
+    generateTrainingPairsFromWiki(wikiData) {
+        const pairs = [];
+        
+        // Generate question-answer pairs
+        pairs.push({
+            input: `what is ${wikiData.title.toLowerCase()}?`,
+            output: wikiData.summary
+        });
 
-        for (const keyword of keywords) {
-            const wikiData = await this.fetchWikipediaData(keyword);
-            if (wikiData && wikiData.summary) {
-                enhancedResponse += `\n\nAdditionally, regarding ${keyword}: ${wikiData.summary}`;
-            }
+        // Generate context-based pairs
+        const sentences = wikiData.extract.split(/[.!?]+/).filter(s => s.trim());
+        for (let i = 0; i < sentences.length - 1; i++) {
+            pairs.push({
+                input: sentences[i].trim(),
+                output: sentences[i + 1].trim()
+            });
         }
+
+        // Generate category-based pairs
+        wikiData.categories.forEach(category => {
+            pairs.push({
+                input: `what category does ${wikiData.title.toLowerCase()} belong to?`,
+                output: `${wikiData.title} is related to ${category.replace('Category:', '')}`
+            });
+        });
+
+        return pairs;
+    }
+
+    async getResponse(userInput) {
+        const sanitizedInput = this.preprocessInput(userInput);
+        const context = this.buildContext(sanitizedInput);
+        
+        try {
+            // Get base response from neural network
+            let response = await this.net.run(context);
+            const confidence = this.getResponseConfidence(response);
+            
+            // Enhance response if confidence is low
+            if (confidence < 0.7) {
+                response = await this.enhanceResponse(response, userInput);
+            }
+            
+            // Post-process response
+            response = await this.postProcessResponse(response, userInput);
+            
+            // Update conversation history
+            this.updateContext(sanitizedInput, response);
+            await this.saveConversation(userInput, response);
+            
+            return response;
+        } catch (error) {
+            console.error('Error generating response:', error);
+            return this.getFailsafeResponse();
+        }
+    }
+
+    async enhanceResponse(baseResponse, userInput) {
+        // Extract entities and topics from user input
+        const entities = await this.extractEntities(userInput);
+        const topics = this.extractTopics(userInput);
+        const sentiment = this.analyzeSentiment(userInput);
+
+        // Get relevant Wikipedia data
+        const wikiData = await Promise.all(
+            topics.map(topic => this.fetchWikipediaData(topic))
+        );
+
+        // Combine information
+        let enhancedResponse = baseResponse;
+        const validWikiData = wikiData.filter(data => data !== null);
+
+        if (validWikiData.length > 0) {
+            const relevantInfo = this.selectMostRelevant(validWikiData, userInput);
+            enhancedResponse = this.combineResponses(baseResponse, relevantInfo);
+        }
+
+        // Adjust response based on sentiment
+        enhancedResponse = this.adjustResponseTone(enhancedResponse, sentiment);
 
         return enhancedResponse;
     }
 
-    extractKeywords(text) {
-        const stopWords = new Set(['the', 'is', 'at', 'which', 'on']);
-        const words = text.toLowerCase().match(/\b\w+\b/g) || [];
-        return words.filter(word => !stopWords.has(word) && word.length > 3);
+    async postProcessResponse(response, userInput) {
+        // Clean up response
+        response = this.cleanResponse(response);
+
+        // Add contextual awareness
+        response = this.addContextualAwareness(response, userInput);
+
+        // Format response
+        response = this.formatResponse(response);
+
+        return response;
     }
 
-    sanitizeInput(input) {
-        return input.toLowerCase()
-            .replace(/[^\w\s?!.,]/g, '')
-            .trim();
+    getResponseConfidence(response) {
+        const factors = {
+            length: Math.min(response.length / 100, 1) * 0.3,
+            complexity: this.analyzeComplexity(response) * 0.3,
+            coherence: this.analyzeCoherence(response) * 0.4
+        };
+
+        return Object.values(factors).reduce((sum, value) => sum + value, 0);
     }
 
-    updateContext(input) {
-        this.contextWindow.push(input);
-        if (this.contextWindow.length > this.maxContextLength) {
-            this.contextWindow.shift();
-        }
+    analyzeComplexity(response) {
+        const sentenceCount = response.split(/[.!?]+/).length;
+        const wordCount = response.split(/\s+/).length;
+        const avgWordLength = response.length / wordCount;
+
+        return Math.min(
+            (sentenceCount / 5) * 0.4 +
+            (wordCount / 20) * 0.3 +
+            (avgWordLength / 5) * 0.3,
+            1
+        );
     }
 
-    async saveConversation(input, response) {
-        if (!this.userId) return;
+    analyzeCoherence(response) {
+        // Check for logical connectors
+        const logicalConnectors = ['because', 'therefore', 'however', 'moreover', 'furthermore'];
+        const hasConnectors = logicalConnectors.some(connector => 
+            response.toLowerCase().includes(connector)
+        );
 
-        const conversationRef = ref(this.db, `users/${this.userId}/conversations`);
-        const newConversationRef = push(conversationRef);
-        
-        await set(newConversationRef, {
-            timestamp: Date.now(),
-            input,
-            response,
-            context: this.contextWindow.slice()
-        });
+        // Check for proper sentence structure
+        const hasProperStructure = response.match(/[A-Z][^.!?]*[.!?]/g)?.length > 0;
+
+        // Check for topic consistency
+        const topicConsistency = this.checkTopicConsistency(response);
+
+        return (
+            (hasConnectors ? 0.4 : 0) +
+            (hasProperStructure ? 0.3 : 0) +
+            (topicConsistency * 0.3)
+        );
     }
 
-    setupEventListeners() {
-        this.ui.sendButton.addEventListener('click', () => this.handleSend());
-        this.ui.userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.handleSend();
-            }
-        });
-        this.ui.clearButton.addEventListener('click', () => this.clearChat());
+    checkTopicConsistency(response) {
+        const sentences = response.split(/[.!?]+/).filter(s => s.trim());
+        if (sentences.length <= 1) return 1;
+
+        const topics = sentences.map(s => this.extractTopics(s));
+        const commonTopics = new Set(topics[0].filter(topic =>
+            topics.every(sentenceTopics => sentenceTopics.includes(topic))
+        ));
+
+        return Math.min(commonTopics.size / 2, 1);
     }
 
-    async handleSend() {
-        const input = this.ui.userInput.value.trim();
-        if (!input) return;
-
-        this.ui.userInput.value = '';
-        this.ui.userInput.disabled = true;
-        this.ui.sendButton.disabled = true;
-        this.ui.typingIndicator.style.display = 'block';
+    async extractEntities(text) {
+        if (!this.ner.model) return [];
 
         try {
-            this.addMessage(input, 'user');
-            const response = await this.processUserInput(input);
-            this.addMessage(response, 'bot');
+            const tokens = this.nlp.tokenizer.tokenize(text);
+            const entities = await this.ner.model.process(tokens);
+            return entities.filter(entity => this.ner.tags.has(entity.type));
         } catch (error) {
-            console.error('Error handling input:', error);
-            this.addMessage("I'm sorry, but I encountered an error. Please try again.", 'bot');
-        } finally {
-            this.ui.userInput.disabled = false;
-            this.ui.sendButton.disabled = false;
-            this.ui.typingIndicator.style.display = 'none';
-            this.ui.userInput.focus();
+            console.error('Entity extraction error:', error);
+            return [];
         }
     }
 
-    addMessage(text, sender) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${sender}-message`;
+    extractTopics(text) {
+        // Remove stop words and tokenize
+        const tokens = this.removeStopWords(text.toLowerCase()).split(/\s+/);
         
-        const content = document.createElement('p');
-        content.textContent = text;
+        // Extract noun phrases
+        const nounPhrases = this.extractNounPhrases(tokens);
         
-        const timestamp = document.createElement('span');
-        timestamp.className = 'timestamp';
-        timestamp.textContent = new Date().toLocaleTimeString();
+        // Use TF-IDF to identify important terms
+        const tfidf = this.calculateTFIDF(tokens);
         
-        messageDiv.appendChild(content);
-        messageDiv.appendChild(timestamp);
-        
-        this.ui.chatWindow.appendChild(messageDiv);
-        this.ui.chatWindow.scrollTop = this.ui.chatWindow.scrollHeight;
+        // Combine and rank topics
+        return this.rankTopics([...nounPhrases, ...tfidf.slice(0, 5)]);
     }
 
-    async clearChat() {
-        while (this.ui.chatWindow.firstChild) {
-            this.ui.chatWindow.removeChild(this.ui.chatWindow.firstChild);
-        }
-        
-        this.contextWindow = [];
-        this.addMessage("Chat cleared. How can I help you?", 'bot');
-        
-        if (this.userId) {
-            const conversationRef = ref(this.db, `users/${this.userId}/conversations`);
-            await remove(conversationRef);
-        }
+    analyzeSentiment(text) {
+        return this.sentiment.getSentiment(
+            this.nlp.tokenizer.tokenize(text)
+        );
     }
 
-    updateStatus(message, type = 'info') {
-        this.ui.statusIndicator.textContent = message;
-        this.ui.statusIndicator.className = `status ${type}`;
+    selectMostRelevant(wikiData, userInput) {
+        const userTopics = this.extractTopics(userInput);
+        
+        return wikiData
+            .map(data => ({
+                data,
+                relevance: this.calculateRelevance(data, userTopics)
+            }))
+            .sort((a, b) => b.relevance - a.relevance)
+            .slice(0, 2)
+            .map(item => item.data);
     }
 
-    handleError(error) {
-        console.error('Chatbot error:', error);
-        this.updateStatus(error.message || 'An error occurred', 'error');
+    calculateRelevance(wikiData, userTopics) {
+        const topicOverlap = userTopics.filter(topic => 
+            wikiData.title.toLowerCase().includes(topic) ||
+            wikiData.categories.some(cat => cat.toLowerCase().includes(topic))
+        ).length;
+
+        const contentRelevance = userTopics.filter(topic =>
+            wikiData.extract.toLowerCase().includes(topic)
+        ).length;
+
+        return (topicOverlap * 0.6) + (contentRelevance * 0.4);
     }
+
+    combineResponses(baseResponse, wikiInfo) {
+        let combined = baseResponse;
+
+        wikiInfo.forEach(info => {
+            const relevantPart = this.extractRelevantPart(info.extract, baseResponse);
+            if (relevantPart) {
+                combined += ` Additionally, ${relevantPart}`;
+            }
+        });
+
+        return this.smoothenCombinedResponse(combined);
+    }
+
+    adjustResponseTone(response, sentiment) {
+        const tone = sentiment > 0.2 ? 'positive' :
+                    sentiment < -0.2 ? 'negative' : 'neutral';
+
+        const toneAdjustments = {
+            positive: {
+                addWords: ['certainly', 'absolutely', 'definitely'],
+                removeWords: ['unfortunately', 'sadly', 'regrettably']
+            },
+            negative: {
+                addWords: ['however', 'nevertheless', 'although'],
+                removeWords: ['great', 'excellent', 'wonderful']
+            },
+            neutral: {
+                addWords: ['specifically', 'particularly', 'notably'],
+                removeWords: ['very', 'extremely', 'absolutely']
+            }
+        };
+
+        return this.applyToneAdjustments(response, toneAdjustments[tone]);
+    }
+
+    getFailsafeResponse() {
+        const failsafeResponses = [
+            "I apologize, but I'm having trouble processing that request. Could you rephrase it?",
+            "I'm not quite sure how to respond to that. Could you try asking in a different way?",
+            "I didn't quite catch that. Could you please provide more context or rephrase your question?"
+        ];
+
+        return failsafeResponses[Math.floor(Math.random() * failsafeResponses.length)];
+    }
+
+    // Add any missing utility methods and error handlers here...
 }
-
-// Initialize chatbot when the page loads
-window.addEventListener('DOMContentLoaded', () => {
-    try {
-        if (typeof brain === 'undefined') {
-            throw new Error('Brain.js library not loaded');
-        }
-        window.chatbot = new EnhancedChatbot();
-    } catch (error) {
-        console.error('Initialization error:', error);
-        const status = document.getElementById('status');
-        if (status) {
-            status.textContent = 'Error: Failed to initialize chatbot';
-            status.className = 'error';
-        }
-    }
-});
 
 export default EnhancedChatbot;
