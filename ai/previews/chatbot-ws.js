@@ -69,7 +69,7 @@ class EnhancedChatbot {
         // Training monitoring
         this.trainingLogElement = null;
         this.trainingStats = {
-            iterations: 0,
+            iterations: 1,
             errorHistory: [],
             startTime: null,
             endTime: null
