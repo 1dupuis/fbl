@@ -179,8 +179,35 @@ class EnhancedChatbot {
             console.error('Error loading training data:', error);
             // Fallback to default data if loading fails
             this.trainingData = [
-                { input: "hello", output: "Hi! How can I help you?" },
-                { input: "how are you", output: "I'm here to assist you. What can I do for you today?" }
+                { input: "tell me a joke", output: "Why did the scarecrow win an award? Because he was outstanding in his field!" },
+{ input: "what's the weather like", output: "I can't check real-time data, but I can help you find a weather website!" },
+{ input: "give me a quote", output: "Here's one: 'The only way to do great work is to love what you do.' - Steve Jobs" },
+{ input: "help me with math", output: "Sure! What math problem are you working on?" },
+{ input: "can you tell a story", output: "Once upon a time, in a land far away, there lived a brave knight..." },
+{ input: "what's the capital of France", output: "The capital of France is Paris." },
+{ input: "who is the president of the USA", output: "As of my last update, Joe Biden is the president." },
+{ input: "what time is it", output: "I can't check the time, but you can look at your device!" },
+{ input: "recommend a book", output: "How about 'To Kill a Mockingbird' by Harper Lee?" },
+{ input: "what's your favorite color", output: "I don’t have personal preferences, but I like all colors!" },
+{ input: "what is AI", output: "AI stands for artificial intelligence, which enables machines to mimic human behavior." },
+{ input: "can you help with coding", output: "Absolutely! What coding language or problem do you need help with?" },
+{ input: "tell me about history", output: "History is the study of past events, particularly in human affairs. What specific topic interests you?" },
+{ input: "what is love", output: "Love is a complex set of emotions, behaviors, and beliefs associated with affection and attachment." },
+{ input: "how can I improve my writing", output: "Practice regularly, read a lot, and seek feedback!" },
+{ input: "what's trending right now", output: "I can't provide real-time updates, but checking social media can give you the latest trends!" },
+{ input: "what's your favorite movie", output: "I don't watch movies, but I've heard 'Inception' is a popular choice!" },
+{ input: "can you play games", output: "I can play text-based games! Would you like to try one?" },
+{ input: "what's a fun fact", output: "Did you know honey never spoils? Archaeologists have found pots of honey in ancient tombs that are over 3000 years old!" },
+{ input: "how do I cook pasta", output: "Boil water, add salt, then add the pasta and cook according to the package instructions!" },
+{ input: "can you give relationship advice", output: "I can offer general advice, but it's always best to talk to someone you trust." },
+{ input: "what's a good exercise", output: "Walking is a great exercise! It’s simple and good for your health." },
+{ input: "what is mindfulness", output: "Mindfulness is the practice of being present and fully engaging with the current moment." },
+{ input: "how can I save money", output: "Create a budget, cut unnecessary expenses, and consider saving a portion of your income!" },
+{ input: "do you have pets", output: "I don’t have pets, but I think they can be wonderful companions!" },
+{ input: "what's your favorite food", output: "I don’t eat, but I've read that pizza is a favorite for many!" },
+{ input: "can you help me study", output: "Sure! What subject do you need help with?" },
+{ input: "what are some hobbies", output: "Some popular hobbies include painting, hiking, and playing musical instruments." },
+{ input: "how do I relax", output: "Try deep breathing, meditation, or listening to music to help you relax." }
             ];
         }
     }
