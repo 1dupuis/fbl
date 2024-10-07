@@ -143,17 +143,17 @@ class EnhancedChatbot {
         try {
             this.updateStatus('Initializing...', 'loading');
             
-            // Enhanced initialization sequence
-            await this.initializeFirebase();
-            await this.loadUserProfile();
-            await this.loadTrainingData();
-            await this.enhancedTraining();
-            await this.initialWebScrape();
+            // Enhanced initialization sequence with timeouts and error handling
+            await this.initializeWithTimeout(this.initializeFirebase, 'Firebase initialization');
+            await this.initializeWithTimeout(this.loadUserProfile, 'User profile loading');
+            await this.initializeWithTimeout(this.loadTrainingData, 'Training data loading');
+            await this.initializeWithTimeout(this.enhancedTraining, 'Model training');
+            await this.initializeWithTimeout(this.initialWebScrape, 'Initial web scrape');
             
             // Initialize advanced features
-            await this.initializeNLP();
-            await this.initializeEntityRecognition();
-            await this.initializeSentimentAnalysis();
+            await this.initializeWithTimeout(this.initializeNLP, 'NLP initialization');
+            await this.initializeWithTimeout(this.initializeEntityRecognition, 'Entity recognition initialization');
+            await this.initializeWithTimeout(this.initializeSentimentAnalysis, 'Sentiment analysis initialization');
             
             this.isInitialized = true;
             this.updateStatus('Ready to chat!', 'success');
@@ -164,8 +164,33 @@ class EnhancedChatbot {
             // Start background processes
             this.startBackgroundProcesses();
         } catch (error) {
-            throw new Error('Initialization failed: ' + error.message);
+            console.error('Initialization failed:', error);
+            this.updateStatus('Initialization failed. Please refresh the page.', 'error');
+            this.handleError(error);
         }
+    }
+
+    async initializeWithTimeout(func, stepName, timeout = 30000) {
+        return new Promise(async (resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(new Error(`${stepName} timed out`));
+            }, timeout);
+
+            try {
+                await func.call(this);
+                clearTimeout(timeoutId);
+                resolve();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                reject(error);
+            }
+        });
+    }
+
+    handleError(error) {
+        console.error('Error during initialization:', error);
+        this.updateStatus(`Error: ${error.message}. Please refresh the page.`, 'error');
+        // Optionally, implement retry logic or fallback initialization here
     }
 
     async initializeNLP() {
@@ -468,6 +493,20 @@ class EnhancedChatbot {
         }
     }
 
+    setInterfaceEnabled(enabled) {
+        if (this.elements) {
+            this.elements.userInput.disabled = !enabled;
+            this.elements.sendBtn.disabled = !enabled;
+        }
+    }
+
+    updateStatus(message, status) {
+        if (this.elements && this.elements.status) {
+            this.elements.status.textContent = message;
+            this.elements.status.className = status;
+        }
+    }
+
     async enhanceResponse(baseResponse, userInput) {
         // Extract entities and topics from user input
         const entities = await this.extractEntities(userInput);
@@ -669,4 +708,5 @@ class EnhancedChatbot {
     // Add any missing utility methods and error handlers here...
 }
 
-export default EnhancedChatbot;
+const chatbot = new EnhancedChatbot();
+chatbot.initializeApp();
