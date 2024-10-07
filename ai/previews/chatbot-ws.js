@@ -275,6 +275,15 @@ class EnhancedChatbot {
         }
     }
 
+    setupTrainingLog() {
+  this.trainingLogElement = document.getElementById('trainingLog');
+  if (!this.trainingLogElement) {
+    console.error('Training log element not found');
+    return;
+  }
+  this.trainingLogElement.innerHTML = '';
+}
+
     async enhancedTraining() {
         this.isTraining = true;
         this.trainingStats.startTime = Date.now();
