@@ -35,7 +35,7 @@ class EnhancedChatbot {
 
         // Enhanced LSTM configuration with improved architecture
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [512, 256, 128], // Deeper network
+            hiddenLayers: [256, 128], // Deeper network
             learningRate: 0.003,
             activation: 'leaky-relu',
             errorThresh: 0.0005,
@@ -269,7 +269,7 @@ class EnhancedChatbot {
 
             // Advanced training configuration
             const config = {
-                iterations: 1000,
+                iterations: 0,
                 errorThresh: 0.0005,
                 log: stats => this.logTrainingProgress(stats),
                 logPeriod: 1,
