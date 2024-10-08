@@ -39,7 +39,7 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [128, 64, 32], // Three layers for better pattern recognition
+            hiddenLayers: [64, 32, 16], // Three layers for better pattern recognition
             learningRate: 0.001, // Slightly higher learning rate for faster convergence
             activation: 'leaky-relu', // Leaky ReLU for better gradient flow
             errorThresh: 0.005, // Slightly higher error threshold for faster training
@@ -183,13 +183,13 @@ class EnhancedChatbot {
 
 async trainNetwork() {
     this.isTraining = true;
-    const totalIterations = 1000;
+    const totalIterations = 250;
     const batchSize = 100;
     const concurrentBatches = 5;
     const validationData = this.trainingData.slice(-100); // Use the last 100 samples for validation
     let bestValidationError = Infinity;
     let patienceCounter = 0;
-    const maxPatience = 20; // Stop training if validation error does not improve for 20 iterations
+    const maxPatience = 20;
 
     try {
         for (let i = 0; i < totalIterations; i += batchSize * concurrentBatches) {
