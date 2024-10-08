@@ -39,7 +39,7 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [64,32], // Three layers for better pattern recognition
+            hiddenLayers: [128,64,32], // Three layers for better pattern recognition
             learningRate: 0.001, // Slightly higher learning rate for faster convergence
             activation: 'leaky-relu', // Leaky ReLU for better gradient flow
             errorThresh: 0.005, // Slightly higher error threshold for faster training
