@@ -39,7 +39,7 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [64, 32],
+            hiddenLayers: [512, 256, 128],
             learningRate: 0.008,
             activation: 'leaky-relu',
             errorThresh: 0.003
@@ -142,12 +142,23 @@ class EnhancedChatbot {
             } else {
                 // Initialize with default data if none exists
                 this.trainingData = [
-                    { input: "hello", output: "Hi! How can I help you?" },
-                    { input: "how are you", output: "I'm here to assist you. What can I do for you today?" },
-                    { input: "what can you do", output: "I can answer questions, provide information, and help with various tasks. What do you need help with?" },
-                    { input: "bye", output: "Goodbye! Feel free to come back if you need any more assistance." },
-                    { input: "thanks", output: "You're welcome! Is there anything else I can help you with?" }
-                ];
+    { input: "hello", output: "Hi! How can I help you?" },
+    { input: "how are you", output: "I'm here to assist you. What can I do for you today?" },
+    { input: "what can you do", output: "I can answer questions, provide information, and help with various tasks. What do you need help with?" },
+    { input: "bye", output: "Goodbye! Feel free to come back if you need any more assistance." },
+    { input: "thanks", output: "You're welcome! Is there anything else I can help you with?" },
+    { input: "what is your name", output: "I’m your AI assistant. How can I assist you today?" },
+    { input: "what is the weather", output: "I'm not currently connected to the internet to check the weather. Is there anything else I can assist with?" },
+    { input: "can you help me", output: "Of course! Just let me know what you need help with." },
+    { input: "tell me a joke", output: "Why don't scientists trust atoms? Because they make up everything!" },
+    { input: "who created you", output: "I was created by developers to help with tasks and answer questions." },
+    { input: "do you have emotions", output: "I don't have emotions, but I'm here to help you with anything you need." },
+    { input: "what time is it", output: "I can't check the current time, but I can help you with other questions." },
+    { input: "how old are you", output: "I don't have an age, but I'm always here to assist you!" },
+    { input: "where are you from", output: "I exist in the digital world, created to assist users like you." },
+    { input: "what is your purpose", output: "My purpose is to assist you with tasks, answer your questions, and provide helpful information." }
+];
+
                 await set(trainingDataRef, this.trainingData);
             }
         } catch (error) {
