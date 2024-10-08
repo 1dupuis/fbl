@@ -39,10 +39,15 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [512, 256, 128],
-            learningRate: 0.008,
-            activation: 'leaky-relu',
-            errorThresh: 0.003
+            hiddenLayers: [128, 64],
+            learningRate: 0.01,
+            activation: 'tanh',
+            errorThresh: 0.005,
+            momentum: 0.9,
+            dropout: 0.2,
+            batchSize: 10,
+            inputSize: 30,
+            outputSize: 30
         });
 
         this.contextWindow = [];
@@ -172,24 +177,26 @@ class EnhancedChatbot {
     }
 
     async trainNetwork() {
-        this.isTraining = true;
-        try {
-            await this.net.train(this.trainingData, {
-                iterations: 500,
-                errorThresh: 0.003,
-                log: true,
-                logPeriod: 1,
-                callback: stats => {
-                    this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
-                }
-            });
-        } catch (error) {
-            console.error('Training error:', error);
-            this.updateStatus('Error in training. Using fallback responses.', 'error');
-        } finally {
-            this.isTraining = false;
-        }
+    this.isTraining = true;
+    try {
+        await this.net.train(this.trainingData, {
+            iterations: 200,
+            errorThresh: 0.005,
+            log: true,
+            logPeriod: 1,
+            learningRate: 0.01,
+            momentum: 0.9,
+            callback: stats => {
+                this.updateStatus(`Training: Error ${stats.error.toFixed(4)}`, 'loading');
+            }
+        });
+    } catch (error) {
+        console.error('Training error:', error);
+        this.updateStatus('Error in training. Using fallback responses.', 'error');
+    } finally {
+        this.isTraining = false;
     }
+}
 
     preprocessInput(text) {
         return text.toLowerCase()
