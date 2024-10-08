@@ -182,67 +182,70 @@ class EnhancedChatbot {
     }
 
 async trainNetwork() {
-        this.isTraining = true;
-        const totalIterations = 500;  // Reduced total iterations
-        const batchSize = 50;         // Increased batch size for faster processing
-        const validationSplit = 0.2;  // 20% of data used for validation
-        const validationData = this.trainingData.slice(-Math.floor(this.trainingData.length * validationSplit));
-        const trainingData = this.trainingData.slice(0, -validationData.length);
+    this.isTraining = true;
+    const totalIterations = 1000;
+    const batchSize = 100;
+    const concurrentBatches = 5;
+    const validationData = this.trainingData.slice(-100); // Use the last 100 samples for validation
+    let bestValidationError = Infinity;
+    let patienceCounter = 0;
+    const maxPatience = 20; // Stop training if validation error does not improve for 20 iterations
 
-        let bestValidationError = Infinity;
-        let patienceCounter = 0;
-        const maxPatience = 10;  // Reduced patience for faster stopping
+    try {
+        for (let i = 0; i < totalIterations; i += batchSize * concurrentBatches) {
+            const trainingPromises = [];
 
-        try {
-            for (let i = 0; i < totalIterations; i += batchSize) {
-                await this.trainBatch(trainingData, i, Math.min(i + batchSize, totalIterations));
+            for (let j = 0; j < concurrentBatches; j++) {
+                const startIteration = i + j * batchSize;
+                const endIteration = Math.min(startIteration + batchSize, totalIterations);
 
-                const validationError = await this.validateModel(validationData);
-                console.log(`Iteration ${i}: Validation Error: ${validationError.toFixed(4)}`);
-
-                if (validationError < bestValidationError) {
-                    bestValidationError = validationError;
-                    patienceCounter = 0;
-                } else {
-                    patienceCounter++;
-                    if (patienceCounter >= maxPatience) {
-                        console.log('Early stopping triggered.');
-                        break;
-                    }
+                if (startIteration < totalIterations) {
+                    trainingPromises.push(this.trainBatch(startIteration, endIteration, validationData));
                 }
+            }
 
-                if (validationError <= this.net.errorThresh) {
-                    console.log('Reached error threshold. Stopping training.');
+            await Promise.all(trainingPromises);
+
+            const validationError = await this.validateModel(validationData);
+            this.updateStatus(`Training: Completed ${Math.min(i + batchSize * concurrentBatches, totalIterations)} / ${totalIterations} iterations, Validation Error: ${validationError.toFixed(4)}`, 'loading');
+
+            if (validationError < bestValidationError) {
+                bestValidationError = validationError;
+                patienceCounter = 0;
+            } else {
+                patienceCounter++;
+                if (patienceCounter >= maxPatience) {
+                    this.updateStatus('Early stopping triggered. Training completed.', 'success');
                     break;
                 }
             }
-            console.log('Training completed successfully!');
-        } catch (error) {
-            console.error('Training error:', error);
-        } finally {
-            this.isTraining = false;
         }
+    } catch (error) {
+        console.error('Training error:', error);
+        this.updateStatus('Error in training. Using fallback responses.', 'error');
+    } finally {
+        this.isTraining = false;
     }
+}
 
-    async trainBatch(trainingData, startIteration, endIteration) {
-        return this.net.train(trainingData, {
-            iterations: endIteration - startIteration,
-            errorThresh: 0.005,
-            log: false,
-            logPeriod: 10,
-            learningRate: 0.01,
-        });
-    }
+async trainBatch(startIteration, endIteration, validationData) {
+    return this.net.train(this.trainingData, {
+        iterations: endIteration - startIteration,
+        errorThresh: 0.005,
+        log: false,
+        logPeriod: 10,
+        learningRate: 0.001,
+        momentum: 0.9,
+        callback: stats => {
+            console.log(`Batch ${startIteration}-${endIteration}: Iteration ${stats.iterations}, Error ${stats.error.toFixed(4)}`);
+        }
+    });
+}
 
-    async validateModel(validationData) {
-        const errors = await Promise.all(
-            validationData.map(async (data) => {
-                const output = await this.net.run(data.input);
-                return brain.likely(output, data.output) ? 0 : 1;
-            })
-        );
-        return errors.reduce((sum, error) => sum + error, 0) / errors.length;
-    }
+async validateModel(validationData) {
+    const validationError = await this.net.test(validationData, { log: false });
+    return validationError.error;
+}
 
     async getResponse(input) {
         return this.net.run(input);
