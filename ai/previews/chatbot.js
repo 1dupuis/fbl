@@ -181,27 +181,51 @@ class EnhancedChatbot {
         }
     }
 
-    async trainNetwork() {
+async trainNetwork() {
         this.isTraining = true;
+        const totalIterations = 1000;
+        const batchSize = 100; // Number of iterations per batch
+        const concurrentBatches = 5; // Number of batches to run concurrently
+    
         try {
-            await this.net.train(this.trainingData, {
-                iterations: 1000, // Increased iterations for better learning
-                errorThresh: 0.005,
-                log: true,
-                logPeriod: 1,
-                learningRate: 0.001,
-                momentum: 0.9,
-                batchSize: 16,
-                callback: stats => {
-                    this.updateStatus(`Training: Iteration ${stats.iterations}, Error ${stats.error.toFixed(4)}`, 'loading');
+            for (let i = 0; i < totalIterations; i += batchSize * concurrentBatches) {
+                const trainingPromises = [];
+    
+                for (let j = 0; j < concurrentBatches; j++) {
+                    const startIteration = i + j * batchSize;
+                    const endIteration = Math.min(startIteration + batchSize, totalIterations);
+    
+                    if (startIteration < totalIterations) {
+                        trainingPromises.push(this.trainBatch(startIteration, endIteration));
+                    }
                 }
-            });
+    
+                await Promise.all(trainingPromises);
+    
+                this.updateStatus(`Training: Completed ${Math.min(i + batchSize * concurrentBatches, totalIterations)} / ${totalIterations} iterations`, 'loading');
+            }
+    
+            this.updateStatus('Training completed successfully!', 'success');
         } catch (error) {
             console.error('Training error:', error);
             this.updateStatus('Error in training. Using fallback responses.', 'error');
         } finally {
             this.isTraining = false;
         }
+    }
+
+    async trainBatch(startIteration, endIteration) {
+        return this.net.train(this.trainingData, {
+            iterations: endIteration - startIteration,
+            errorThresh: 0.005,
+            log: false,
+            logPeriod: 10,
+            learningRate: 0.001,
+            momentum: 0.9,
+            callback: stats => {
+                console.log(`Batch ${startIteration}-${endIteration}: Iteration ${stats.iterations}, Error ${stats.error.toFixed(4)}`);
+            }
+        });
     }
 
     preprocessInput(text) {
