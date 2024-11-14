@@ -39,7 +39,7 @@ const database = getDatabase(app);
 class EnhancedChatbot {
     constructor() {
         this.net = new brain.recurrent.LSTM({
-            hiddenLayers: [128,64,32], // Three layers for better pattern recognition
+            hiddenLayers: [16,8,4], // Three layers for better pattern recognition
             learningRate: 0.001, // Slightly higher learning rate for faster convergence
             activation: 'leaky-relu', // Leaky ReLU for better gradient flow
             errorThresh: 0.005, // Slightly higher error threshold for faster training
@@ -157,16 +157,7 @@ class EnhancedChatbot {
                     { input: "what's the weather like", output: "I'm sorry, I don't have real-time weather data. Is there something else I can assist you with?" },
                     { input: "who created you", output: "I was created by a team of developers as an AI assistant. How can I help you today?" },
                     { input: "what's your name", output: "I'm an AI assistant without a specific name. You can just call me 'Assistant'. How can I help?" },
-                    { input: "how old are you", output: "As an AI, I don't have an age in the traditional sense. I'm here to assist you. What can I help with?" },
-                    { input: "what is artificial intelligence", output: "Artificial Intelligence (AI) refers to computer systems designed to perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Is there a specific aspect of AI you'd like to know more about?" },
-                    { input: "explain machine learning", output: "Machine Learning is a subset of AI where systems learn from data to improve their performance on a specific task without being explicitly programmed. It's used in various applications like recommendation systems, image recognition, and natural language processing. Would you like to know more about a specific type of machine learning?" },
-                    { input: "what is deep learning", output: "Deep Learning is a subset of Machine Learning that uses neural networks with multiple layers (deep neural networks) to analyze various factors of data. It's particularly effective for tasks like image and speech recognition, natural language processing, and playing complex games. Is there a specific application of deep learning you're curious about?" },
-                    { input: "can you write code", output: "As an AI language model, I can provide examples of code and explain programming concepts, but I don't actively write or execute code. What specific programming help do you need?" },
-                    { input: "what programming languages do you know", output: "I have knowledge about many programming languages including Python, JavaScript, Java, C++, and others. Which language are you interested in or working with?" },
-                    { input: "explain object-oriented programming", output: "Object-Oriented Programming (OOP) is a programming paradigm based on the concept of 'objects', which can contain data and code. The main principles of OOP are encapsulation, inheritance, polymorphism, and abstraction. Would you like me to explain any of these principles in more detail?" },
-                    { input: "what is a database", output: "A database is an organized collection of structured information or data, typically stored electronically in a computer system. Databases are managed using database management systems (DBMS). There are various types of databases, such as relational, NoSQL, and graph databases. Do you want to know more about a specific type of database?" },
-                    { input: "explain SQL", output: "SQL (Structured Query Language) is a standard language for managing and manipulating relational databases. It's used for tasks like querying data, updating records, inserting new data, and creating and modifying database structures. Would you like an example of a SQL query?" },
-                    { input: "what is cloud computing", output: "Cloud computing is the delivery of computing services—including servers, storage, databases, networking, software, analytics, and intelligence—over the Internet ('the cloud') to offer faster innovation, flexible resources, and economies of scale. Popular cloud providers include AWS, Google Cloud, and Microsoft Azure. Is there a specific aspect of cloud computing you'd like to explore?" }
+                    { input: "how old are you", output: "As an AI, I don't have an age in the traditional sense. I'm here to assist you. What can I help with?" }
                 ];
 
                 await set(trainingDataRef, this.trainingData);
